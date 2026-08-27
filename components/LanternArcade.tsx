@@ -366,9 +366,9 @@ export default function LanternArcade() {
       </header>
 
       <section className="calm-intro" aria-labelledby="lantern-title">
-        <p>Agent-programmable learning games</p>
-        <h1 id="lantern-title">Describe the lesson.<br /><em>Play the world.</em></h1>
-        <div><span>Give your browser agent one learning goal. It writes the game, opens a safe playtest, and saves the result on this device.</span><a href="#create">Make a game <ArrowRight size={16} /></a></div>
+        <p>Learning games, made with your AI agent</p>
+        <h1 id="lantern-title">Turn any learning goal<br /><em>into a game.</em></h1>
+        <div><span>Tell Lantern what a learner should understand. Your AI agent turns it into a playable game you can test, improve, and keep.</span><a href="#create">Build a learning game <ArrowRight size={16} /></a></div>
       </section>
 
       <section className="game-workbench" id="create">
@@ -385,12 +385,11 @@ export default function LanternArcade() {
           </aside>
 
           <section className="playtest-pane">
-            <header><div><span>Now playing</span><b>{selectedGame.title}</b></div><div><span className={`local-save ${storageState}`}><FloppyDisk size={14} /> {agentDraft ? storageState === 'error' ? 'Not saved' : 'Saved locally' : 'Demo game'}</span>{agentDraft && <a href={`/games/local/${agentDraft.id}`}>Open game page <ArrowRight size={14} /></a>}</div></header>
             <div className="workbench-canvas"><SandboxGameCanvas variant="workbench" key={`${selectedGame.id}-${selectedGame.revision}`} project={selectedGame} onEvidence={rememberEvidence} onRuntimeError={rememberRuntimeError} />{buildIsBusy && <div className="building-overlay"><span><Wrench size={25} weight="duotone" /></span><b>{currentPhase.label}</b><small>{currentPhase.detail}</small><i /></div>}</div>
           </section>
 
           <section className="workbench-drawer">
-            <div className={`build-summary phase-${phase}`} aria-live="polite"><i /><span><b>{currentPhase.label}</b><small>{runtimeErrors[0] || currentPhase.detail}</small></span></div>
+            <div className={`build-summary phase-${phase}`} aria-live="polite"><i /><span><b>{currentPhase.label}</b><small>{runtimeErrors[0] || currentPhase.detail}{agentDraft ? ` · ${storageState === 'error' ? 'not saved' : 'saved locally'}` : ''}</small></span>{agentDraft && <a href={`/games/local/${agentDraft.id}`}>Open game page <ArrowRight size={13} /></a>}</div>
             <details><summary>Build details <span>{Math.max(0, progress + 1)} / 5</span></summary><div className="thread-pipeline">{buildPipeline.map(([label, detail], index) => <div className={`${index < progress ? 'complete' : ''} ${index === progress ? 'current' : ''}`} key={label}><i>{index < progress ? <Check size={9} weight="bold" /> : index + 1}</i><span><b>{label}</b><small>{detail}</small></span></div>)}</div>{activity.length > 0 && <div className="thread-events">{activity.slice(0, 3).map((item) => <div className={`thread-event ${item.tone || ''}`} key={item.id}><i /><span><b>{item.label}</b><small>{item.detail}</small></span></div>)}</div>}</details>
             <details><summary>Learning evidence <span>{evidence.length}</span></summary><p>{evidence[0]?.mastery || evidence[0]?.detail || 'Play the game to capture what the learner understands.'}</p></details>
             {savedGames.length > 0 && <details className="local-library"><summary>Saved games <span>{savedGames.length}</span></summary><div>{savedGames.map((game) => <article key={game.id}><button type="button" onClick={() => resumeGame(game)}><b>{game.title}</b><small>{game.subject} · r{game.revision}</small></button><a href={`/games/local/${game.id}`} aria-label={`Play ${game.title}`}><Play size={12} weight="fill" /></a><button type="button" onClick={() => removeSavedGame(game.id)} aria-label={`Remove ${game.title}`}><Trash size={12} /></button></article>)}</div></details>}
