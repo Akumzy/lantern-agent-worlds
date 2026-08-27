@@ -85,7 +85,8 @@
 .arcade-section-heading > div > span { color: var(--arcade-blue); text-transform: uppercase; letter-spacing: .12em; font-size: 9px; font-weight: 900; }
 .arcade-section-heading h2 { margin: 7px 0 0; font: 800 clamp(29px,3.2vw,47px)/1 var(--font-display); letter-spacing: -.055em; }
 .arcade-section-heading > p { max-width: 470px; margin: 0; color: #66718b; font-size: 12px; line-height: 1.55; }
-.game-card-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 15px; }
+.game-card-grid { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 15px; }
+.game-card { grid-column: span 2; }.game-card:nth-last-child(2) { grid-column: 2 / span 2; }
 .game-card { min-width: 0; overflow: hidden; display: grid; grid-template-rows: 170px auto 1fr; border: 1.5px solid #cad4ea; border-radius: 18px; background: white; box-shadow: 0 10px 24px rgba(48,67,112,.08); transition: transform .2s ease,box-shadow .2s ease,border-color .2s ease; }
 .game-card:hover { transform: translateY(-4px); box-shadow: 0 17px 33px rgba(48,67,112,.13); }
 .game-card.selected { border-color: var(--arcade-blue); box-shadow: 0 0 0 3px rgba(52,84,231,.09),0 17px 33px rgba(48,67,112,.13); }
@@ -340,7 +341,7 @@
   .arcade-hero { grid-template-columns: 1fr; margin-top: 0; }
   .arcade-hero-copy { padding-bottom: 0; }
   .arcade-create { grid-template-columns: 1fr; }
-  .game-card-grid { grid-template-columns: 1fr 1fr; }
+  .game-card-grid { grid-template-columns: 1fr 1fr; }.game-card,.game-card:nth-last-child(2) { grid-column: auto; }
   .arcade-studio { grid-template-columns: 1fr; }
   .studio-copy { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; align-items: start; }.studio-copy > .arcade-eyebrow,.studio-copy > h2,.studio-copy > p { grid-column: 1 / -1; }.runtime-chip-grid { grid-column: 1 / -1; }
   .how-grid { grid-template-columns: 1fr 1fr; }.how-grid article:nth-child(2) { border-right: 0; }.how-grid article:nth-child(-n+2) { border-bottom: 1px solid #dbe1ee; }

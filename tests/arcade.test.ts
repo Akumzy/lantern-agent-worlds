@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { arcadeCapabilities, arcadeToolDefinitions, blankAgentProject, validateGameSource } from '../lib/arcade';
+import { arcadeCapabilities, arcadeToolDefinitions, blankAgentProject, demoGames, validateGameSource } from '../lib/arcade';
 import { normalizeRuntimeErrors } from '../lib/browser-workspace';
 
 test('advertises only renderers available inside agent game frames', () => {
@@ -32,6 +32,18 @@ test('creates a safe, playable first revision', () => {
   assert.equal(game.revision, 1);
   assert.equal(game.source, 'agent');
   assert.deepEqual(validateGameSource(game), []);
+});
+
+test('ships five distinct, safe six-year-old learning demos', () => {
+  assert.deepEqual(demoGames.map((game) => game.id), [
+    'number-harbor', 'phonics-forest', 'shape-city-builders', 'tiny-ecosystem-rescue', 'pattern-planet',
+  ]);
+  for (const game of demoGames) {
+    assert.equal(game.ageBand, 'Age 6');
+    assert.deepEqual(validateGameSource(game), [], `${game.title} should satisfy the sandbox contract`);
+    assert.match(game.javascript, /lantern\.evidence/);
+    assert.match(game.javascript, /lantern\.complete/);
+  }
 });
 
 test('scopes runtime errors by game and migrates the legacy list', () => {

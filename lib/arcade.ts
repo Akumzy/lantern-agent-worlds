@@ -1,4 +1,4 @@
-import { complexDemoGames } from './demo-games';
+import { sixYearOldDemoGames } from './demo-games-six';
 
 export type GameStatus = 'demo' | 'draft' | 'review';
 
@@ -27,7 +27,7 @@ export type GameEvidence = {
   at: string;
 };
 
-export const demoGames: GameProject[] = complexDemoGames;
+export const demoGames: GameProject[] = sixYearOldDemoGames;
 
 export const arcadeCapabilities = {
   runtime: 'sandboxed_web_game_v1',
