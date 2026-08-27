@@ -53,11 +53,6 @@ export default function LanternArcade() {
     setRuntimeErrors(errorsRef.current);
   }
 
-  function openGame(project: GameProject) {
-    setSelectedGame(project);
-    window.setTimeout(() => document.getElementById('game-studio')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
-  }
-
   useEffect(() => {
     executeRef.current = (name, input) => {
     if (name === 'get_game_canvas_capabilities') {
@@ -161,7 +156,7 @@ export default function LanternArcade() {
           <p className="arcade-eyebrow">The AI-programmable learning arcade</p><h1>Describe a game.<br /><em>Learn by playing.</em></h1>
           <p className="arcade-deck">Your browser agent turns any learning goal into a safe web game kids can play right here.</p>
           <div className="arcade-trust-row"><span><ShieldCheck size={18} weight="fill" /> Kid-safe runtime</span><span><Sparkle size={18} weight="fill" /> Powered by WebMCP</span></div>
-          <a className="arcade-play-link" href="#fraction-forge"><Play size={17} weight="fill" /> Play the demo</a>
+          <Link className="arcade-play-link" href="/games/fraction-forge"><Play size={17} weight="fill" /> Play the demo</Link>
         </div>
         <section className="fraction-forge" id="fraction-forge" aria-label="Playable Fraction Forge demo">
           <div className="forge-toolbar"><div><span className="forge-live-dot" /> Playable demo</div><b>Fraction Forge</b><button type="button" onClick={() => setPlaced(0)}>Reset</button></div>
@@ -182,7 +177,7 @@ export default function LanternArcade() {
 
       <section className="game-shelf" id="games">
         <div className="arcade-section-heading"><div><span>Made inside Lantern</span><h2>Play what other agents made</h2></div><p>Every game has a clear learning goal, immediate feedback, and evidence a grown-up can understand.</p></div>
-        <div className="game-card-grid">{demoGames.map((game) => <article className={`game-card game-card-${game.thumbnail} ${selectedGame.id === game.id ? 'selected' : ''}`} key={game.id}><div className="game-card-art" aria-hidden="true"><span /><span /><span /><GameController size={35} weight="duotone" /></div><div className="game-card-copy"><span>{game.subject} · {game.ageBand}</span><h3>{game.title}</h3><p>{game.description}</p></div><div className="game-card-footer"><small><Target size={14} weight="fill" /> {game.learningGoal}</small><button type="button" onClick={() => openGame(game)}><Play size={13} weight="fill" /> Play</button></div></article>)}</div>
+        <div className="game-card-grid">{demoGames.map((game) => <article className={`game-card game-card-${game.thumbnail} ${selectedGame.id === game.id ? 'selected' : ''}`} key={game.id}><div className="game-card-art" aria-hidden="true"><span /><span /><span /><GameController size={35} weight="duotone" /></div><div className="game-card-copy"><span>{game.subject} · {game.ageBand}</span><h3>{game.title}</h3><p>{game.description}</p></div><div className="game-card-footer"><small><Target size={14} weight="fill" /> {game.learningGoal}</small><Link href={`/games/${game.id}`}><Play size={13} weight="fill" /> Play</Link></div></article>)}</div>
       </section>
 
       <section className="arcade-studio" id="game-studio">
