@@ -1,10 +1,10 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- vinext client navigation currently throws during transitions; full document links are intentional. */
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ArrowRight, BracketsCurly, Check, Copy, Cube, FloppyDisk, GameController,
-  LightbulbFilament, MagicWand, Play, ShieldCheck, Target, Trash, Wrench,
+  ArrowRight, BracketsCurly, Check, Copy, FloppyDisk, GameController,
+  LightbulbFilament, Play, ShieldCheck, Target, Trash, Wrench,
 } from '@phosphor-icons/react';
 import {
   arcadeCapabilities, arcadeToolDefinitions, blankAgentProject, demoGames, validateGameSource,
@@ -361,58 +361,49 @@ export default function LanternArcade() {
     <main className="arcade-shell" id="main-content">
       <a className="skip-link" href="#create">Skip to game builder</a>
       <header className="arcade-nav">
-        <Link className="arcade-brand" href="/" aria-label="Lantern home"><span><LightbulbFilament size={23} weight="fill" /></span><b>Lantern</b></Link>
-        <nav aria-label="Primary navigation"><a href="#create">Make</a><a href="#games">Play</a><a href="#grown-ups">Safeguards</a></nav>
-        <div className="arcade-nav-actions"><span className={`arcade-agent-state ${webMcp} ${agentActive ? 'active' : ''}`}>{connectionLabel}</span><button className="arcade-create-link" type="button" onClick={startFresh}>New brief</button></div>
+        <a className="arcade-brand" href="/" aria-label="Lantern home"><span><LightbulbFilament size={23} weight="fill" /></span><b>Lantern</b></a>
+        <nav aria-label="Primary navigation"><a href="#games">Games</a><a href="#grown-ups">Safeguards</a></nav>
       </header>
 
-      <section className="game-workbench" id="create">
-        <header className="workbench-topbar">
-          <div><small>LANTERN / LOCAL GAME STUDIO</small><h1>Make a game</h1></div>
-          <div className="workbench-file"><span>OPEN FILE</span><b>{selectedGame.title}</b><small>revision {selectedGame.revision} · {selectedGame.status}</small></div>
-          <div className={`workbench-connection ${webMcp} ${agentActive ? 'active' : ''}`}><i /><span><b>{webMcp === 'ready' ? 'WebMCP available' : webMcp === 'checking' ? 'Checking WebMCP' : 'WebMCP unavailable'}</b><small>{agentActive ? 'Agent connected' : 'No agent connected'}</small></span></div>
-        </header>
+      <section className="calm-intro" aria-labelledby="lantern-title">
+        <p>Agent-programmable learning games</p>
+        <h1 id="lantern-title">Describe the lesson.<br /><em>Play the world.</em></h1>
+        <div><span>Give your browser agent one learning goal. It writes the game, opens a safe playtest, and saves the result on this device.</span><a href="#create">Make a game <ArrowRight size={16} /></a></div>
+      </section>
 
+      <section className="game-workbench" id="create">
         <div className="workbench-body">
           <aside className="brief-pane">
-            <div className="pane-label"><span>01</span><b>BUILD BRIEF</b></div>
-            <h2>What should the player practise?</h2>
-            <p>Describe one learner, one skill, and a game world they would want to explore.</p>
+            <span className="quiet-kicker">Build brief</span>
+            <h2>What should they practise?</h2>
+            <p>Name the learner, the skill, and a world they would enjoy.</p>
             <label className="workbench-prompt"><span className="sr-only">Learning game brief</span><textarea name="learning-game-brief" autoComplete="off" maxLength={2000} value={request} onChange={(event) => updateRequest(event.target.value)} rows={7} placeholder="Example: A bridge-building adventure for an 8-year-old learning equivalent fractions…" /></label>
-            <ul className="brief-checklist"><li>Who is learning?</li><li>What should change after play?</li><li>What makes the world interesting?</li></ul>
-            <button className="workbench-copy" type="button" onClick={copyAgentPrompt} disabled={!request.trim()}>{copied ? <Check size={18} weight="bold" /> : <Copy size={18} />}<span><b>{copied ? 'Handoff copied' : 'Copy handoff for my browser agent'}</b><small>{copied ? 'Paste it into your agent.' : 'URL, tools, limits, and build sequence included.'}</small></span></button>
+            <button className="workbench-copy" type="button" onClick={copyAgentPrompt} disabled={!request.trim()}>{copied ? <Check size={18} weight="bold" /> : <Copy size={18} />}<span><b>{copied ? 'Handoff copied' : 'Copy for my browser agent'}</b><small>{copied ? 'Paste it into your agent.' : 'Includes this page and the build steps.'}</small></span></button>
             {copyError && <p className="copy-error" role="status" aria-live="polite">{copyError}</p>}
+            <div className={`studio-status ${webMcp} ${agentActive ? 'active' : ''}`}><i /><span><b>{connectionLabel}</b><small>{currentPhase.label} · sandboxed on this device</small></span></div>
             {resumeCandidate && <aside className="workbench-resume"><span><FloppyDisk size={16} /><b>Resume {resumeCandidate.title}</b><small>Local revision {resumeCandidate.revision}</small></span><div><button type="button" onClick={() => resumeGame(resumeCandidate)}>Resume</button><button type="button" onClick={startFresh}>Ignore</button></div></aside>}
           </aside>
 
           <section className="playtest-pane">
-            <header><div className="pane-label"><span>02</span><b>PLAYTEST</b></div><div><span className={`local-save ${storageState}`}><FloppyDisk size={14} /> {agentDraft ? storageState === 'error' ? 'Not saved' : 'Saved on this device' : 'Example game'}</span>{agentDraft && <Link href={`/games/local/${agentDraft.id}`}>Open full page <ArrowRight size={14} /></Link>}</div></header>
+            <header><div><span>Now playing</span><b>{selectedGame.title}</b></div><div><span className={`local-save ${storageState}`}><FloppyDisk size={14} /> {agentDraft ? storageState === 'error' ? 'Not saved' : 'Saved locally' : 'Demo game'}</span>{agentDraft && <a href={`/games/local/${agentDraft.id}`}>Open game page <ArrowRight size={14} /></a>}</div></header>
             <div className="workbench-canvas"><SandboxGameCanvas variant="workbench" key={`${selectedGame.id}-${selectedGame.revision}`} project={selectedGame} onEvidence={rememberEvidence} onRuntimeError={rememberRuntimeError} />{buildIsBusy && <div className="building-overlay"><span><Wrench size={25} weight="duotone" /></span><b>{currentPhase.label}</b><small>{currentPhase.detail}</small><i /></div>}</div>
           </section>
 
-          <aside className="inspector-pane">
-            <section className="build-thread">
-              <div className="pane-label"><span>03</span><b>BUILD THREAD</b></div>
-              <div className={`thread-status phase-${phase}`} aria-live="polite"><i /> <span><b>{currentPhase.label}</b><small>{runtimeErrors[0] || currentPhase.detail}</small></span></div>
-              <div className="thread-pipeline">{buildPipeline.map(([label, detail], index) => <div className={`${index < progress ? 'complete' : ''} ${index === progress ? 'current' : ''}`} key={label}><i>{index < progress ? <Check size={9} weight="bold" /> : index + 1}</i><span><b>{label}</b><small>{detail}</small></span></div>)}</div>
-              {activity.length > 0 && <div className="thread-events"><em>RECENT ACTIVITY</em>{activity.slice(0, 2).map((item) => <div className={`thread-event ${item.tone || ''}`} key={item.id}><i /><span><b>{item.label}</b><small>{item.detail}</small></span></div>)}</div>}
-            </section>
-            <section className="evidence-inspector"><div className="inspector-heading"><b>LEARNING EVIDENCE</b><span>{evidence.length}</span></div><p>{evidence[0]?.mastery || evidence[0]?.detail || 'Playtest actions will show what the learner understands.'}</p></section>
-            <section className="local-library"><div className="inspector-heading"><b>LOCAL DRAFTS</b><span>{savedGames.length}</span></div>{savedGames.length ? <div>{savedGames.map((game) => <article key={game.id}><button type="button" onClick={() => resumeGame(game)}><b>{game.title}</b><small>{game.subject} · r{game.revision}</small></button><Link href={`/games/local/${game.id}`} aria-label={`Play ${game.title}`}><Play size={12} weight="fill" /></Link><button type="button" onClick={() => removeSavedGame(game.id)} aria-label={`Remove ${game.title}`}><Trash size={12} /></button></article>)}</div> : <p>No local drafts yet.</p>}</section>
-          </aside>
+          <section className="workbench-drawer">
+            <div className={`build-summary phase-${phase}`} aria-live="polite"><i /><span><b>{currentPhase.label}</b><small>{runtimeErrors[0] || currentPhase.detail}</small></span></div>
+            <details><summary>Build details <span>{Math.max(0, progress + 1)} / 5</span></summary><div className="thread-pipeline">{buildPipeline.map(([label, detail], index) => <div className={`${index < progress ? 'complete' : ''} ${index === progress ? 'current' : ''}`} key={label}><i>{index < progress ? <Check size={9} weight="bold" /> : index + 1}</i><span><b>{label}</b><small>{detail}</small></span></div>)}</div>{activity.length > 0 && <div className="thread-events">{activity.slice(0, 3).map((item) => <div className={`thread-event ${item.tone || ''}`} key={item.id}><i /><span><b>{item.label}</b><small>{item.detail}</small></span></div>)}</div>}</details>
+            <details><summary>Learning evidence <span>{evidence.length}</span></summary><p>{evidence[0]?.mastery || evidence[0]?.detail || 'Play the game to capture what the learner understands.'}</p></details>
+            {savedGames.length > 0 && <details className="local-library"><summary>Saved games <span>{savedGames.length}</span></summary><div>{savedGames.map((game) => <article key={game.id}><button type="button" onClick={() => resumeGame(game)}><b>{game.title}</b><small>{game.subject} · r{game.revision}</small></button><a href={`/games/local/${game.id}`} aria-label={`Play ${game.title}`}><Play size={12} weight="fill" /></a><button type="button" onClick={() => removeSavedGame(game.id)} aria-label={`Remove ${game.title}`}><Trash size={12} /></button></article>)}</div></details>}
+          </section>
         </div>
-
-        <footer className="workbench-statusbar"><span><BracketsCurly size={14} /> HTML / CSS / JS</span><span><Cube size={14} /> Canvas 2D / WebGL</span><span><ShieldCheck size={14} /> Isolated runtime</span><span><Target size={14} /> Evidence bridge</span></footer>
       </section>
 
       <section className="arcade-thesis"><span>WHAT LANTERN DOES</span><h2>Code becomes play.<br />Play becomes evidence.</h2><p>A browser agent can write a complete web game—not a dressed-up quiz—then run it safely, inspect the result, and preserve the draft on this device.</p><div className="runtime-spec"><span><b>WORLD</b> Canvas, WebGL, physics, shaders</span><span><b>INPUT</b> Touch, keyboard, audio</span><span><b>PROOF</b> Attempts, corrections, mastery</span></div></section>
 
-      <section className="game-shelf" id="games"><div className="arcade-section-heading"><div><span>Playable proof</span><h2>Explore games built for learning</h2></div><p>Each demo uses a different game loop, gives useful feedback, and records evidence a grown-up can understand.</p></div><div className="game-card-grid">{demoGames.map((game) => <article className={`game-card game-card-${game.thumbnail} ${selectedGame.id === game.id ? 'selected' : ''}`} key={game.id}><div className="game-card-art" aria-hidden="true"><span /><span /><span /><GameController size={35} weight="duotone" /></div><div className="game-card-copy"><span>{game.subject} · {game.ageBand}</span><h3>{game.title}</h3><p>{game.description}</p></div><div className="game-card-footer"><small><Target size={14} weight="fill" /> {game.learningGoal}</small><Link href={`/games/${game.id}`}><Play size={13} weight="fill" /> Play game</Link></div></article>)}</div></section>
-
-      <section className="arcade-how" id="how"><div className="arcade-section-heading"><div><span>The creation loop</span><h2>From one sentence to a game they can play.</h2></div></div><div className="how-grid"><article><i>1</i><MagicWand size={25} weight="duotone" /><h3>Describe the goal</h3><p>Say who is learning, what they need to understand, and what kind of world would excite them.</p></article><article><i>2</i><BracketsCurly size={25} weight="duotone" /><h3>Your agent builds</h3><p>WebMCP tools create the draft, program the game, validate it, and open a live playtest.</p></article><article><i>3</i><GameController size={25} weight="duotone" /><h3>The learner plays</h3><p>The sandbox turns code into an accessible game with keyboard, touch, sound, and fullscreen controls.</p></article><article><i>4</i><Target size={25} weight="duotone" /><h3>Learning becomes visible</h3><p>Mastery creates evidence and a brief celebration—not streaks, loot, or empty rewards.</p></article></div></section>
+      <section className="game-shelf" id="games"><div className="arcade-section-heading"><div><span>Playable proof</span><h2>Explore games built for learning</h2></div><p>Each demo uses a different game loop, gives useful feedback, and records evidence a grown-up can understand.</p></div><div className="game-card-grid">{demoGames.map((game) => <article className={`game-card game-card-${game.thumbnail} ${selectedGame.id === game.id ? 'selected' : ''}`} key={game.id}><div className="game-card-art" aria-hidden="true"><span /><span /><span /><GameController size={35} weight="duotone" /></div><div className="game-card-copy"><span>{game.subject} · {game.ageBand}</span><h3>{game.title}</h3><p>{game.description}</p></div><div className="game-card-footer"><small><Target size={14} weight="fill" /> {game.learningGoal}</small><a href={`/games/${game.id}`}><Play size={13} weight="fill" /> Play game</a></div></article>)}</div></section>
 
       <section className="grown-ups" id="grown-ups"><div><p className="arcade-eyebrow">For parents and teachers</p><h2>Creative freedom inside firm boundaries.</h2><p>Agents can invent mechanics and worlds. Games cannot quietly contact outside services, collect personal information, open new pages, or publish without review.</p></div><div className="safety-grid"><span><ShieldCheck size={21} weight="fill" /><b>No external network</b><small>Games run offline inside an isolated frame.</small></span><span><BracketsCurly size={21} weight="fill" /><b>Source validation</b><small>Unsafe APIs and oversized code are rejected.</small></span><span><FloppyDisk size={21} weight="fill" /><b>Device-local drafts</b><small>Work survives refreshes without leaving this browser.</small></span><span><Check size={21} weight="bold" /><b>Human review</b><small>Agents request review; they do not publish alone.</small></span></div></section>
-      <footer className="arcade-footer"><Link className="arcade-brand" href="/"><span><LightbulbFilament size={21} weight="fill" /></span><b>Lantern</b></Link><p>Make a learning world from one sentence.</p><a href="#create">Build with your agent <ArrowRight size={15} /></a></footer>
+      <footer className="arcade-footer"><a className="arcade-brand" href="/"><span><LightbulbFilament size={21} weight="fill" /></span><b>Lantern</b></a><p>Make a learning world from one sentence.</p><a href="#create">Build with your agent <ArrowRight size={15} /></a></footer>
     </main>
   );
 }

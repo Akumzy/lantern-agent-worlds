@@ -1,6 +1,6 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- vinext client navigation currently throws during transitions; full document links are intentional. */
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { ArrowLeft, Check, GameController, LightbulbFilament, MagicWand, Play, ShieldCheck, Target } from '@phosphor-icons/react';
 import type { GameEvidence, GameProject } from '../lib/arcade';
@@ -40,14 +40,14 @@ export default function GamePageClient({ game, related }: { game: GameProject; r
   return (
     <main className="game-page-shell">
       <header className="game-page-nav">
-        <Link className="arcade-brand" href="/" aria-label="Lantern home"><span><LightbulbFilament size={22} weight="fill" /></span><b>Lantern</b></Link>
-        <Link className="back-to-arcade" href="/#games"><ArrowLeft size={16} /> Back to games</Link>
+        <a className="arcade-brand" href="/" aria-label="Lantern home"><span><LightbulbFilament size={22} weight="fill" /></span><b>Lantern</b></a>
+        <a className="back-to-arcade" href="/#games"><ArrowLeft size={16} /> Back to games</a>
         <div><span>{game.subject}</span><span>{game.ageBand}</span></div>
       </header>
 
       <section className="game-page-heading">
         <div><p>Playable learning game</p><h1>{game.title}</h1><span>{game.description}</span></div>
-        <Link href="/#create"><MagicWand size={17} weight="duotone" /> Remix with my agent</Link>
+        <a href="/#create"><MagicWand size={17} weight="duotone" /> Remix with my agent</a>
       </section>
 
       <section className="game-play-layout">
@@ -76,7 +76,7 @@ export default function GamePageClient({ game, related }: { game: GameProject; r
 
       <section className="related-games">
         <div><span>Keep exploring</span><h2>More games to play</h2></div>
-        <div>{related.map((item) => <Link href={`/games/${item.id}`} key={item.id}><span>{item.subject} · {item.ageBand}</span><b>{item.title}</b><small>{item.learningGoal}</small><i><Play size={13} weight="fill" /> Play</i></Link>)}</div>
+        <div>{related.map((item) => <a href={`/games/${item.id}`} key={item.id}><span>{item.subject} · {item.ageBand}</span><b>{item.title}</b><small>{item.learningGoal}</small><i><Play size={13} weight="fill" /> Play</i></a>)}</div>
       </section>
     </main>
   );
