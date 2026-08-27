@@ -294,8 +294,14 @@ export default function LanternArcade() {
       fallback.style.cssText = 'position:fixed;left:-9999px;opacity:0';
       document.body.appendChild(fallback);
       fallback.select();
-      const fallbackCopied = document.execCommand('copy');
-      fallback.remove();
+      let fallbackCopied = false;
+      try {
+        fallbackCopied = document.execCommand('copy');
+      } catch {
+        fallbackCopied = false;
+      } finally {
+        fallback.remove();
+      }
       if (fallbackCopied) {
         setCopied(true);
         markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
