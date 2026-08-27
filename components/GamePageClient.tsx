@@ -4,12 +4,33 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { ArrowLeft, Check, GameController, LightbulbFilament, MagicWand, Play, ShieldCheck, Target } from '@phosphor-icons/react';
 import type { GameEvidence, GameProject } from '../lib/arcade';
+import { readBrowserWorkspace, writeBrowserWorkspace } from '../lib/browser-workspace';
 import SandboxGameCanvas from './SandboxGameCanvas';
 
 export default function GamePageClient({ game, related }: { game: GameProject; related: GameProject[] }) {
   const [evidence, setEvidence] = useState<GameEvidence[]>([]);
   const [runtimeError, setRuntimeError] = useState('');
   const mastery = evidence.find((item) => item.mastery)?.mastery;
+
+  function rememberEvidence(item: GameEvidence) {
+    setEvidence((current) => [item, ...current].slice(0, 10));
+    if (game.source !== 'agent') return;
+    const workspace = readBrowserWorkspace();
+    if (!workspace) return;
+    const { version: _version, updatedAt: _updatedAt, ...draft } = workspace;
+    void _version; void _updatedAt;
+    writeBrowserWorkspace({ ...draft, evidence: [item, ...workspace.evidence].slice(0, 40), selectedGameId: game.id });
+  }
+
+  function rememberRuntimeError(message: string) {
+    setRuntimeError(message);
+    if (game.source !== 'agent') return;
+    const workspace = readBrowserWorkspace();
+    if (!workspace) return;
+    const { version: _version, updatedAt: _updatedAt, ...draft } = workspace;
+    void _version; void _updatedAt;
+    writeBrowserWorkspace({ ...draft, runtimeErrors: [message, ...workspace.runtimeErrors].slice(0, 12), phase: 'error', selectedGameId: game.id });
+  }
 
   return (
     <main className="game-page-shell">
@@ -27,8 +48,8 @@ export default function GamePageClient({ game, related }: { game: GameProject; r
       <section className="game-play-layout">
         <SandboxGameCanvas
           project={game}
-          onEvidence={(item) => setEvidence((current) => [item, ...current].slice(0, 10))}
-          onRuntimeError={setRuntimeError}
+          onEvidence={rememberEvidence}
+          onRuntimeError={rememberRuntimeError}
         />
         <aside className="game-mission-card">
           <div className="mission-label"><Target size={17} weight="fill" /> Mission</div>

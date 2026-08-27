@@ -32,7 +32,7 @@ export const demoGames: GameProject[] = complexDemoGames;
 export const arcadeCapabilities = {
   runtime: 'sandboxed_web_game_v1',
   renderers: ['dom', 'canvas_2d', 'webgl', 'threejs_scene_graph'],
-  features: ['render_loop', 'pointer_input', 'keyboard_input', 'audio', 'physics', 'glsl_shaders', 'mastery_events'],
+  features: ['render_loop', 'pointer_input', 'keyboard_input', 'audio', 'physics', 'glsl_shaders', 'mastery_events', 'host_confetti', 'browser_saved_drafts'],
   limits: { htmlCharacters: 24000, cssCharacters: 32000, javascriptCharacters: 48000, externalNetwork: false },
   safety: ['isolated_iframe', 'no_same_origin', 'no_external_network', 'human_review_before_publish'],
 };
@@ -71,6 +71,21 @@ export const arcadeToolDefinitions = [
     description: 'Read Lantern Arcade renderers, game features, safety boundaries, and source-size limits before creating a game.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} },
     annotations: { readOnlyHint: true },
+  },
+  {
+    name: 'list_saved_game_drafts',
+    description: 'List agent-created learning game drafts saved on this device so an agent can continue an existing revision instead of starting over.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: 'resume_game_draft',
+    description: 'Load one browser-saved game into the visible builder and make it the active draft for subsequent source updates.',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { requestId, gameId: { type: 'string', minLength: 3, maxLength: 100 } },
+      required: ['requestId', 'gameId'],
+    },
   },
   {
     name: 'create_game_draft',
