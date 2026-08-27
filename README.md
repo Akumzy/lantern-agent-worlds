@@ -23,6 +23,25 @@ The browser page exposes eight WebMCP tools:
 
 Agent-authored games can use DOM, Canvas 2D, raw WebGL, render loops, physics, audio, keyboard/touch input, and GLSL shaders. They report progress with `lantern.evidence()` and mastery with `lantern.complete()`. Mastery triggers host-controlled confetti.
 
+## WebMCP implementation
+
+The `/` route renders [`LanternArcade`](./components/LanternArcade.tsx), which registers the tool definitions from [`lib/arcade.ts`](./lib/arcade.ts) through `document.modelContext.registerTool()` (with `navigator.modelContext` as a compatibility fallback). Each tool executes against the visible, browser-local game workspace so agent actions immediately update the builder and playtest.
+
+In its canonical single-tool form, the registration looks like this:
+
+```ts
+document.modelContext.registerTool({
+  name: 'get_game_canvas_capabilities',
+  description: 'Read Lantern renderers, features, safety boundaries, and limits.',
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  annotations: { readOnlyHint: true },
+  execute: async (input) =>
+    executeRef.current('get_game_canvas_capabilities', input),
+});
+```
+
+The production code uses a short loop to register all eight definitions and adds complete schemas, annotations, handlers, validation, revision checks, a compatibility fallback, and a cancellation signal.
+
 ## Safety and persistence
 
 - Games run in an isolated iframe without same-origin access.
@@ -58,4 +77,4 @@ The five included games—Number Harbor, Phonics Forest, Shape City Builders, Ti
 
 ## Technology
 
-Vinext, React, TypeScript, WebMCP, sandboxed `srcDoc` iframes, Canvas 2D/WebGL, and browser local storage.
+Vinext, React, TypeScript, WebMCP, sandboxed `srcDoc` iframes, Canvas 2D/WebGL, and browser local storage. Lantern does not require a backend database or external game runtime.

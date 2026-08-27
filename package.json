@@ -20,16 +20,13 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "test": "tsx --test tests/**/*.test.ts",
-    "check": "npm run lint && npm run test && npm run build",
-    "db:generate": "drizzle-kit generate"
+    "check": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
-    "drizzle-orm": "0.45.2",
     "next": "16.3.3",
     "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "three": "^0.185.1"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -39,10 +36,8 @@
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
-    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.3",
     "react-server-dom-webpack": "19.2.6",

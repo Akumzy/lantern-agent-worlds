@@ -263,14 +263,23 @@ export default function LanternArcade() {
   }, []);
 
   useEffect(() => {
-    const context = document.modelContext || navigator.modelContext;
+    const modelContext = document.modelContext || navigator.modelContext;
     const controller = new AbortController();
     let live = true;
-    if (!context) {
+    if (!modelContext) {
       const timer = window.setTimeout(() => setWebMcp('unavailable'), 0);
       return () => { window.clearTimeout(timer); controller.abort(); };
     }
-    Promise.all(arcadeToolDefinitions.map((definition) => Promise.resolve(context.registerTool({ ...definition, inputSchema: definition.inputSchema as unknown as Record<string, unknown>, annotations: definition.annotations ? definition.annotations as unknown as Record<string, unknown> : undefined, execute: (input: Record<string, unknown>) => executeRef.current(definition.name, input) }, { signal: controller.signal })))).then(() => live && setWebMcp('ready')).catch(() => live && setWebMcp('unavailable'));
+    Promise.all(arcadeToolDefinitions.map((definition) => Promise.resolve(
+      modelContext.registerTool({
+        ...definition,
+        inputSchema: definition.inputSchema as unknown as Record<string, unknown>,
+        annotations: definition.annotations
+          ? definition.annotations as unknown as Record<string, unknown>
+          : undefined,
+        execute: (input: Record<string, unknown>) => executeRef.current(definition.name, input),
+      }, { signal: controller.signal }),
+    ))).then(() => live && setWebMcp('ready')).catch(() => live && setWebMcp('unavailable'));
     return () => { live = false; controller.abort(); };
   }, []);
 
