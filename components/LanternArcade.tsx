@@ -15,8 +15,11 @@ import {
 } from '../lib/browser-workspace';
 import SandboxGameCanvas from './SandboxGameCanvas';
 
-const legacyStarterRequest = 'A multiplication adventure for an 8-year-old who loves space. Practise the 6 times table with three short levels.';
-const starterRequest = 'A bridge-building adventure for an 8-year-old. Practise equivalent fractions by repairing three sections of a sky bridge.';
+const legacyStarterRequests = new Set([
+  'A multiplication adventure for an 8-year-old who loves space. Practise the 6 times table with three short levels.',
+  'A bridge-building adventure for an 8-year-old. Practise equivalent fractions by repairing three sections of a sky bridge.',
+]);
+const starterRequest = 'A colorful harbor adventure for a 6-year-old learning addition and subtraction within 20. Pilot a small boat between three islands and load the correct number of cargo crates to complete each equation.';
 type BuildActivity = { id: number; label: string; detail: string; tone?: 'good' | 'error' };
 type WorkspaceDraft = Omit<BrowserWorkspace, 'version' | 'updatedAt'>;
 
@@ -121,7 +124,7 @@ export default function LanternArcade() {
     const hydrateTimer = window.setTimeout(() => {
       const stored = readBrowserWorkspace();
       if (stored) {
-        const restoredRequest = !stored.request || stored.request === legacyStarterRequest ? starterRequest : stored.request;
+        const restoredRequest = !stored.request || legacyStarterRequests.has(stored.request) ? starterRequest : stored.request;
         workspaceRef.current = { request: restoredRequest, games: stored.games, selectedGameId: stored.selectedGameId, evidence: stored.evidence, runtimeErrors: stored.runtimeErrors, phase: stored.phase };
         setRequest(restoredRequest);
         setSavedGames(stored.games);
