@@ -9,6 +9,7 @@ type Props = {
   project: GameProject;
   onEvidence?: (evidence: GameEvidence) => void;
   onRuntimeError?: (message: string) => void;
+  variant?: 'default' | 'workbench';
 };
 
 function safeScript(value: string) {
@@ -40,7 +41,7 @@ function evidenceFromPayload(project: GameProject, payload: Record<string, unkno
   return { gameId: project.id, event, detail, mastery: mastery || undefined, at: new Date().toISOString() };
 }
 
-export default function SandboxGameCanvas({ project, onEvidence, onRuntimeError }: Props) {
+export default function SandboxGameCanvas({ project, onEvidence, onRuntimeError, variant = 'default' }: Props) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const shellRef = useRef<HTMLElement>(null);
   const [run, setRun] = useState(0);
@@ -50,6 +51,13 @@ export default function SandboxGameCanvas({ project, onEvidence, onRuntimeError 
   const instanceId = useId();
   const token = useMemo(() => `${instanceId}-${project.id}-${project.revision}-${run}`, [instanceId, project.id, project.revision, run]);
   const source = useMemo(() => makeDocument(project, token), [project, token]);
+
+  useEffect(() => {
+    const readyFallback = window.setTimeout(() => {
+      setStatus((current) => current === 'loading' ? 'ready' : current);
+    }, 500);
+    return () => window.clearTimeout(readyFallback);
+  }, [token]);
 
   useEffect(() => {
     function receive(event: MessageEvent) {
@@ -95,7 +103,7 @@ export default function SandboxGameCanvas({ project, onEvidence, onRuntimeError 
   }
 
   return (
-    <section className="sandbox-game" ref={shellRef} aria-label={`${project.title} game canvas`}>
+    <section className={`sandbox-game ${variant === 'workbench' ? 'sandbox-workbench' : ''}`} ref={shellRef} aria-label={`${project.title} game canvas`}>
       <header>
         <div>
           <span className={`sandbox-status ${status}`} />
@@ -115,6 +123,7 @@ export default function SandboxGameCanvas({ project, onEvidence, onRuntimeError 
           title={`${project.title} playable game`}
           sandbox="allow-scripts"
           srcDoc={source}
+          onLoad={() => setStatus((current) => current === 'loading' ? 'ready' : current)}
         />
         {celebration > 0 && <div className="sandbox-confetti" key={celebration} aria-hidden="true">{Array.from({ length: 34 }, (_, index) => <i key={index} style={{ left: `${(index * 37) % 101}%`, animationDelay: `${(index % 9) * 35}ms`, background: ['#3454e7','#ffb43a','#2ecf9a','#f3665e','#8c6cff'][index % 5], transform: `rotate(${index * 29}deg)` } as CSSProperties} />)}</div>}
         {status === 'complete' && <div className="sandbox-complete" role="status" aria-live="polite"><CheckCircle size={18} weight="fill" /> Mastery evidence captured</div>}

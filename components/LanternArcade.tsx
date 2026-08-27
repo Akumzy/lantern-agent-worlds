@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight, BracketsCurly, Check, Copy, Cube, FloppyDisk, GameController,
-  LightbulbFilament, MagicWand, Play, ShieldCheck, Sparkle, Target, Trash, Wrench,
+  LightbulbFilament, MagicWand, Play, ShieldCheck, Target, Trash, Wrench,
 } from '@phosphor-icons/react';
 import {
   arcadeCapabilities, arcadeToolDefinitions, blankAgentProject, demoGames, validateGameSource,
@@ -15,7 +15,8 @@ import {
 } from '../lib/browser-workspace';
 import SandboxGameCanvas from './SandboxGameCanvas';
 
-const starterRequest = 'A multiplication adventure for an 8-year-old who loves space. Practise the 6 times table with three short levels.';
+const legacyStarterRequest = 'A multiplication adventure for an 8-year-old who loves space. Practise the 6 times table with three short levels.';
+const starterRequest = 'A bridge-building adventure for an 8-year-old. Practise equivalent fractions by repairing three sections of a sky bridge.';
 type BuildActivity = { id: number; label: string; detail: string; tone?: 'good' | 'error' };
 type WorkspaceDraft = Omit<BrowserWorkspace, 'version' | 'updatedAt'>;
 
@@ -30,6 +31,16 @@ const phaseCopy: Record<StoredBuildPhase, { label: string; detail: string }> = {
   review: { label: 'Ready for human review', detail: 'Validated and saved locally. It has not been published.' },
   error: { label: 'Build needs attention', detail: 'The exact problem is available to the agent through diagnostics.' },
 };
+
+const buildPipeline = [
+  ['Read capabilities', 'Inspect the canvas and safety contract.'],
+  ['Create draft', 'Set the learner, goal, and revision.'],
+  ['Write game source', 'Program the complete playable world.'],
+  ['Validate', 'Check source, runtime, and evidence.'],
+  ['Open playtest', 'Put the latest revision in the canvas.'],
+] as const;
+
+const phaseProgress: Record<StoredBuildPhase, number> = { idle: -1, handoff: -1, planning: 0, drafting: 1, coding: 2, validating: 3, preview: 4, review: 5, error: 3 };
 
 function buildAgentPrompt(request: string) {
   const origin = typeof window === 'undefined' ? 'https://lantern.example' : window.location.origin;
@@ -108,8 +119,9 @@ export default function LanternArcade() {
     const hydrateTimer = window.setTimeout(() => {
       const stored = readBrowserWorkspace();
       if (stored) {
-        workspaceRef.current = { request: stored.request || starterRequest, games: stored.games, selectedGameId: stored.selectedGameId, evidence: stored.evidence, runtimeErrors: stored.runtimeErrors, phase: stored.phase };
-        setRequest(stored.request || starterRequest);
+        const restoredRequest = !stored.request || stored.request === legacyStarterRequest ? starterRequest : stored.request;
+        workspaceRef.current = { request: restoredRequest, games: stored.games, selectedGameId: stored.selectedGameId, evidence: stored.evidence, runtimeErrors: stored.runtimeErrors, phase: stored.phase };
+        setRequest(restoredRequest);
         setSavedGames(stored.games);
         const candidate = stored.games.find((game) => game.id === stored.selectedGameId) || stored.games[0] || null;
         setResumeCandidate(candidate);
@@ -285,7 +297,7 @@ export default function LanternArcade() {
     errorsRef.current = [];
     setAgentDraft(null);
     setResumeCandidate(null);
-    setSelectedGame(demoGames[0]);
+    setSelectedGame(demoGames.find((game) => game.id === 'fraction-forge') || demoGames[0]);
     setEvidence([]);
     setRuntimeErrors([]);
     setAgentActive(false);
@@ -304,37 +316,55 @@ export default function LanternArcade() {
   const buildIsBusy = ['planning', 'drafting', 'coding', 'validating'].includes(phase);
   const connectionLabel = webMcp === 'checking' ? 'Checking WebMCP' : webMcp === 'unavailable' ? 'WebMCP unavailable here' : agentActive ? 'Agent connected and building' : 'WebMCP available · waiting for agent';
   const currentPhase = phaseCopy[phase];
+  const progress = phaseProgress[phase];
 
   return (
     <main className="arcade-shell">
       <header className="arcade-nav">
         <Link className="arcade-brand" href="/" aria-label="Lantern home"><span><LightbulbFilament size={23} weight="fill" /></span><b>Lantern</b></Link>
-        <nav aria-label="Primary navigation"><a href="#create">Build</a><a href="#games">Demo games</a><a href="#how">How it works</a></nav>
-        <div className="arcade-nav-actions"><span className={`arcade-agent-state ${webMcp} ${agentActive ? 'active' : ''}`}>{connectionLabel}</span><a className="arcade-create-link" href="#create">New game</a></div>
+        <nav aria-label="Primary navigation"><a href="#create">Make</a><a href="#games">Play</a><a href="#grown-ups">Safeguards</a></nav>
+        <div className="arcade-nav-actions"><span className={`arcade-agent-state ${webMcp} ${agentActive ? 'active' : ''}`}>{connectionLabel}</span><button className="arcade-create-link" type="button" onClick={startFresh}>New brief</button></div>
       </header>
 
-      <section className="builder-hero" id="create">
-        <div className="builder-console">
-          <div className="builder-kicker"><span className={webMcp === 'ready' ? 'online' : ''} /> {connectionLabel}</div>
-          <h1>Make a learning world from <em>one sentence.</em></h1>
-          <p className="builder-deck">Your browser agent plans, programs, checks, and saves a complete playable game in this canvas.</p>
-          <label className="builder-prompt"><span>What should the learner understand?</span><textarea value={request} onChange={(event) => updateRequest(event.target.value)} rows={4} /><div><span>Include an age</span><span>Name the skill</span><span>Suggest a world</span></div></label>
-          <button className="builder-copy" type="button" onClick={copyAgentPrompt} disabled={!request.trim()}>{copied ? <Check size={19} weight="bold" /> : <Copy size={19} />}<span><b>{copied ? 'Instructions copied' : 'Copy instructions for my agent'}</b><small>{copied ? 'Paste them into your browser agent.' : 'Includes this URL and every WebMCP build step.'}</small></span><ArrowRight size={18} /></button>
-          <div className={`builder-live-state phase-${phase}`} aria-live="polite"><span className="builder-state-icon">{buildIsBusy ? <Wrench size={19} weight="duotone" /> : phase === 'review' || phase === 'preview' ? <Check size={18} weight="bold" /> : <Sparkle size={18} weight="duotone" />}</span><div><small>BUILDING MODE</small><b>{currentPhase.label}</b><p>{runtimeErrors[0] || currentPhase.detail}</p></div></div>
-          {resumeCandidate && <aside className="resume-card"><div><FloppyDisk size={18} weight="duotone" /><span><small>Saved on this device</small><b>Resume {resumeCandidate.title}</b><em>revision {resumeCandidate.revision} · {resumeCandidate.status}</em></span></div><div><button type="button" onClick={() => resumeGame(resumeCandidate)}>Resume</button><button type="button" onClick={startFresh}>Start fresh</button></div></aside>}
-          <div className="build-tape"><div className="build-tape-heading"><span>Agent activity</span><small>{activity.length ? 'Live' : 'No tool calls yet'}</small></div>{activity.length ? activity.map((item) => <div className={`build-event ${item.tone || ''}`} key={item.id}><i /><span><b>{item.label}</b><small>{item.detail}</small></span></div>) : <div className="build-event muted"><i /><span><b>Tools registered</b><small>Your agent’s calls will appear here as readable build steps.</small></span></div>}</div>
+      <section className="game-workbench" id="create">
+        <header className="workbench-topbar">
+          <div><small>LANTERN / LOCAL GAME STUDIO</small><h1>Make a game</h1></div>
+          <div className="workbench-file"><span>OPEN FILE</span><b>{selectedGame.title}</b><small>revision {selectedGame.revision} · {selectedGame.status}</small></div>
+          <div className={`workbench-connection ${webMcp} ${agentActive ? 'active' : ''}`}><i /><span><b>{webMcp === 'ready' ? 'WebMCP available' : webMcp === 'checking' ? 'Checking WebMCP' : 'WebMCP unavailable'}</b><small>{agentActive ? 'Agent connected' : 'No agent connected'}</small></span></div>
+        </header>
+
+        <div className="workbench-body">
+          <aside className="brief-pane">
+            <div className="pane-label"><span>01</span><b>BUILD BRIEF</b></div>
+            <h2>What should the player practise?</h2>
+            <p>Describe one learner, one skill, and a game world they would want to explore.</p>
+            <label className="workbench-prompt"><span className="sr-only">Learning game brief</span><textarea value={request} onChange={(event) => updateRequest(event.target.value)} rows={7} /></label>
+            <ul className="brief-checklist"><li>Who is learning?</li><li>What should change after play?</li><li>What makes the world interesting?</li></ul>
+            <button className="workbench-copy" type="button" onClick={copyAgentPrompt} disabled={!request.trim()}>{copied ? <Check size={18} weight="bold" /> : <Copy size={18} />}<span><b>{copied ? 'Handoff copied' : 'Copy handoff for my browser agent'}</b><small>{copied ? 'Paste it into your agent.' : 'URL, tools, limits, and build sequence included.'}</small></span></button>
+            {resumeCandidate && <aside className="workbench-resume"><span><FloppyDisk size={16} /><b>Resume {resumeCandidate.title}</b><small>Local revision {resumeCandidate.revision}</small></span><div><button type="button" onClick={() => resumeGame(resumeCandidate)}>Resume</button><button type="button" onClick={startFresh}>Ignore</button></div></aside>}
+          </aside>
+
+          <section className="playtest-pane">
+            <header><div className="pane-label"><span>02</span><b>PLAYTEST</b></div><div><span className={`local-save ${storageState}`}><FloppyDisk size={14} /> {agentDraft ? storageState === 'error' ? 'Not saved' : 'Saved on this device' : 'Example game'}</span>{agentDraft && <Link href={`/games/local/${agentDraft.id}`}>Open full page <ArrowRight size={14} /></Link>}</div></header>
+            <div className="workbench-canvas"><SandboxGameCanvas variant="workbench" key={`${selectedGame.id}-${selectedGame.revision}`} project={selectedGame} onEvidence={rememberEvidence} onRuntimeError={rememberRuntimeError} />{buildIsBusy && <div className="building-overlay"><span><Wrench size={25} weight="duotone" /></span><b>{currentPhase.label}</b><small>{currentPhase.detail}</small><i /></div>}</div>
+          </section>
+
+          <aside className="inspector-pane">
+            <section className="build-thread">
+              <div className="pane-label"><span>03</span><b>BUILD THREAD</b></div>
+              <div className={`thread-status phase-${phase}`} aria-live="polite"><i /> <span><b>{currentPhase.label}</b><small>{runtimeErrors[0] || currentPhase.detail}</small></span></div>
+              <div className="thread-pipeline">{buildPipeline.map(([label, detail], index) => <div className={`${index < progress ? 'complete' : ''} ${index === progress ? 'current' : ''}`} key={label}><i>{index < progress ? <Check size={9} weight="bold" /> : index + 1}</i><span><b>{label}</b><small>{detail}</small></span></div>)}</div>
+              {activity.length > 0 && <div className="thread-events"><em>RECENT ACTIVITY</em>{activity.slice(0, 2).map((item) => <div className={`thread-event ${item.tone || ''}`} key={item.id}><i /><span><b>{item.label}</b><small>{item.detail}</small></span></div>)}</div>}
+            </section>
+            <section className="evidence-inspector"><div className="inspector-heading"><b>LEARNING EVIDENCE</b><span>{evidence.length}</span></div><p>{evidence[0]?.mastery || evidence[0]?.detail || 'Playtest actions will show what the learner understands.'}</p></section>
+            <section className="local-library"><div className="inspector-heading"><b>LOCAL DRAFTS</b><span>{savedGames.length}</span></div>{savedGames.length ? <div>{savedGames.map((game) => <article key={game.id}><button type="button" onClick={() => resumeGame(game)}><b>{game.title}</b><small>{game.subject} · r{game.revision}</small></button><Link href={`/games/local/${game.id}`} aria-label={`Play ${game.title}`}><Play size={12} weight="fill" /></Link><button type="button" onClick={() => removeSavedGame(game.id)} aria-label={`Remove ${game.title}`}><Trash size={12} /></button></article>)}</div> : <p>No local drafts yet.</p>}</section>
+          </aside>
         </div>
 
-        <div className="builder-preview">
-          <header><div><span className={`preview-status ${buildIsBusy ? 'building' : phase}`} /><small>{agentDraft ? 'AGENT-CREATED DRAFT' : 'LIVE DEMO CANVAS'}</small><b>{selectedGame.title}</b></div><div><span className={`local-save ${storageState}`}><FloppyDisk size={14} /> {storageState === 'error' ? 'Could not save' : 'Saved locally'}</span>{agentDraft && <Link href={`/games/local/${agentDraft.id}`}>Open game page <ArrowRight size={14} /></Link>}</div></header>
-          <div className="builder-preview-canvas"><SandboxGameCanvas key={`${selectedGame.id}-${selectedGame.revision}`} project={selectedGame} onEvidence={rememberEvidence} onRuntimeError={rememberRuntimeError} />{buildIsBusy && <div className="building-overlay"><span><Wrench size={25} weight="duotone" /></span><b>{currentPhase.label}</b><small>{currentPhase.detail}</small><i /></div>}</div>
-          <footer><div><span>Learning goal</span><b>{selectedGame.learningGoal}</b></div><div><span>Live evidence</span><b>{evidence[0]?.mastery || evidence[0]?.detail || 'Waiting for play'}</b></div></footer>
-        </div>
+        <footer className="workbench-statusbar"><span><BracketsCurly size={14} /> HTML / CSS / JS</span><span><Cube size={14} /> Canvas 2D / WebGL</span><span><ShieldCheck size={14} /> Isolated runtime</span><span><Target size={14} /> Evidence bridge</span></footer>
       </section>
 
-      {savedGames.length > 0 && <section className="saved-worlds"><div><span>Your device</span><h2>Saved worlds</h2><p>Drafts stay in this browser until you remove them.</p></div><div className="saved-world-list">{savedGames.map((game) => <article key={game.id}><button className="saved-world-main" type="button" onClick={() => resumeGame(game)}><span><GameController size={18} weight="duotone" /></span><b>{game.title}</b><small>{game.subject} · revision {game.revision}</small></button><Link href={`/games/local/${game.id}`} aria-label={`Play ${game.title}`}><Play size={14} weight="fill" /></Link><button className="saved-world-remove" type="button" onClick={() => removeSavedGame(game.id)} aria-label={`Remove ${game.title}`}><Trash size={14} /></button></article>)}</div></section>}
-
-      <section className="arcade-thesis"><div><p className="arcade-eyebrow">One canvas, any learning world</p><h2>Not a quiz generator.<br /><em>A programmable arcade.</em></h2></div><div><p>Lantern accepts complete HTML, CSS, Canvas 2D, WebGL, render loops, physics, audio, and shaders—then runs the result inside an isolated, no-network frame.</p><div className="runtime-chip-grid"><span><BracketsCurly size={18} /> HTML + CSS + JS</span><span><Cube size={18} /> 2D + 3D</span><span><Sparkle size={18} /> Shaders + confetti</span><span><Target size={18} /> Mastery evidence</span></div></div></section>
+      <section className="arcade-thesis"><span>WHAT LANTERN DOES</span><h2>Code becomes play.<br />Play becomes evidence.</h2><p>A browser agent can write a complete web game—not a dressed-up quiz—then run it safely, inspect the result, and preserve the draft on this device.</p><div className="runtime-spec"><span><b>WORLD</b> Canvas, WebGL, physics, shaders</span><span><b>INPUT</b> Touch, keyboard, audio</span><span><b>PROOF</b> Attempts, corrections, mastery</span></div></section>
 
       <section className="game-shelf" id="games"><div className="arcade-section-heading"><div><span>Playable proof</span><h2>Explore games built for learning</h2></div><p>Each demo uses a different game loop, gives useful feedback, and records evidence a grown-up can understand.</p></div><div className="game-card-grid">{demoGames.map((game) => <article className={`game-card game-card-${game.thumbnail} ${selectedGame.id === game.id ? 'selected' : ''}`} key={game.id}><div className="game-card-art" aria-hidden="true"><span /><span /><span /><GameController size={35} weight="duotone" /></div><div className="game-card-copy"><span>{game.subject} · {game.ageBand}</span><h3>{game.title}</h3><p>{game.description}</p></div><div className="game-card-footer"><small><Target size={14} weight="fill" /> {game.learningGoal}</small><Link href={`/games/${game.id}`}><Play size={13} weight="fill" /> Play game</Link></div></article>)}</div></section>
 
