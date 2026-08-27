@@ -1,3 +1,3 @@
-import LanternLanding from '../components/LanternLanding';
+import LanternArcade from '../components/LanternArcade';
 
-export default function Home(){ return <LanternLanding/>; }
+export default function Home(){ return <LanternArcade/>; }

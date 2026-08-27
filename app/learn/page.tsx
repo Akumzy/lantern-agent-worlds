@@ -1,3 +1,3 @@
-import LanternWorkspace from '../../components/LanternWorkspace';
+import { redirect } from 'next/navigation';
 
-export default function LearnPage(){return <LanternWorkspace/>;}
+export default function LearnPage(){redirect('/');}
