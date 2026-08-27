@@ -31,7 +31,7 @@ export const demoGames: GameProject[] = complexDemoGames;
 
 export const arcadeCapabilities = {
   runtime: 'sandboxed_web_game_v1',
-  renderers: ['dom', 'canvas_2d', 'webgl', 'threejs_scene_graph'],
+  renderers: ['dom', 'canvas_2d', 'webgl'],
   features: ['render_loop', 'pointer_input', 'keyboard_input', 'audio', 'physics', 'glsl_shaders', 'mastery_events', 'host_confetti', 'browser_saved_drafts'],
   limits: { htmlCharacters: 24000, cssCharacters: 32000, javascriptCharacters: 48000, externalNetwork: false },
   safety: ['isolated_iframe', 'no_same_origin', 'no_external_network', 'human_review_before_publish'],
@@ -47,6 +47,8 @@ const blockedSourcePatterns: Array<[RegExp, string]> = [
   [/\b(document\.cookie|navigator\.sendBeacon)\b/i, 'Games cannot access cookies or send beacons.'],
   [/\beval\s*\(|\bFunction\s*\(/, 'Dynamic code evaluation is unavailable inside game drafts.'],
   [/\b(import\s*\(|require\s*\()/i, 'Dynamic imports are unavailable inside game drafts.'],
+  [/\bwhile\s*\(\s*(?:true|1)\s*\)/i, 'Unbounded while loops are unavailable inside game drafts. Use requestAnimationFrame for game loops.'],
+  [/\bfor\s*\(\s*;\s*;\s*\)/i, 'Unbounded for loops are unavailable inside game drafts. Use requestAnimationFrame for game loops.'],
   [/<script\b/i, 'Put JavaScript in the javascript field, not inside HTML.'],
   [/<iframe\b/i, 'Nested frames are unavailable inside games.'],
 ];
@@ -130,8 +132,8 @@ export const arcadeToolDefinitions = [
   },
   {
     name: 'get_game_runtime_diagnostics',
-    description: 'Read validation errors, runtime errors, and recent mastery evidence for the visible game preview.',
-    inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+    description: 'Read validation errors, runtime errors, and recent mastery evidence for a saved game or the visible preview.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { gameId: { type: 'string', minLength: 3, maxLength: 100 } } },
     annotations: { readOnlyHint: true },
   },
   {

@@ -163,6 +163,7 @@ export default function SandboxGameCanvas({ project, onEvidence, onRuntimeError,
           key={`${project.id}-${project.revision}-${run}`}
           title={`${project.title} playable game`}
           sandbox="allow-scripts"
+          referrerPolicy="no-referrer"
           srcDoc={source}
           onLoad={() => setStatus((current) => current === 'loading' ? 'ready' : current)}
         />

@@ -11,7 +11,7 @@ export type BrowserWorkspace = {
   games: GameProject[];
   selectedGameId: string | null;
   evidence: GameEvidence[];
-  runtimeErrors: string[];
+  runtimeErrors: Record<string, string[]>;
   phase: StoredBuildPhase;
   updatedAt: string;
 };
@@ -42,7 +42,7 @@ export function readBrowserWorkspace(): BrowserWorkspace | null {
   try {
     const raw = window.localStorage.getItem(WORKSPACE_KEY);
     if (!raw || raw.length > 2_500_000) return null;
-    const parsed = JSON.parse(raw) as Partial<BrowserWorkspace>;
+    const parsed = JSON.parse(raw) as Partial<BrowserWorkspace> & { runtimeErrors?: unknown };
     if (parsed.version !== 1 || !Array.isArray(parsed.games)) return null;
     const games = parsed.games.filter(isGameProject).slice(0, 8);
     return {
@@ -51,13 +51,25 @@ export function readBrowserWorkspace(): BrowserWorkspace | null {
       games,
       selectedGameId: typeof parsed.selectedGameId === 'string' ? parsed.selectedGameId : null,
       evidence: Array.isArray(parsed.evidence) ? parsed.evidence.filter(isEvidence).slice(0, 40) : [],
-      runtimeErrors: Array.isArray(parsed.runtimeErrors) ? parsed.runtimeErrors.filter((item): item is string => typeof item === 'string').slice(0, 12) : [],
+      runtimeErrors: normalizeRuntimeErrors(parsed.runtimeErrors, typeof parsed.selectedGameId === 'string' ? parsed.selectedGameId : null),
       phase: isBuildPhase(parsed.phase) ? parsed.phase : 'idle',
       updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date(0).toISOString(),
     };
   } catch {
     return null;
   }
+}
+
+export function normalizeRuntimeErrors(value: unknown, selectedGameId: string | null) {
+  if (Array.isArray(value)) {
+    const legacy = value.filter((item): item is string => typeof item === 'string').slice(0, 12);
+    return selectedGameId && legacy.length ? { [selectedGameId]: legacy } : {};
+  }
+  if (!value || typeof value !== 'object') return {};
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter(([gameId, errors]) => gameId.length > 2 && Array.isArray(errors))
+    .slice(0, 8)
+    .map(([gameId, errors]) => [gameId, (errors as unknown[]).filter((item): item is string => typeof item === 'string').slice(0, 12)]));
 }
 
 export function writeBrowserWorkspace(workspace: Omit<BrowserWorkspace, 'version' | 'updatedAt'>) {

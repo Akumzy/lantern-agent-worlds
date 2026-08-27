@@ -83,6 +83,7 @@ export default function ThreeLessonRuntime({spec,active=true,compact=false,onRec
   const [selectedId,setSelectedId] = useState(spec.nodes.find(node=>node.interaction && node.interaction !== 'none')?.id || spec.nodes[0]?.id || '');
   const [playing,setPlaying] = useState(true);
   const [saved,setSaved] = useState(false);
+  const [renderError,setRenderError] = useState('');
   const initialValues = useMemo(()=>Object.fromEntries(spec.nodes.filter(node=>typeof node.value === 'number').map(node=>[node.id,node.value as number])),[spec.nodes]);
   const [values,setValues] = useState<Record<string,number>>(initialValues);
   const interactiveNodes = spec.nodes.filter(node=>typeof node.value === 'number');
@@ -103,14 +104,22 @@ export default function ThreeLessonRuntime({spec,active=true,compact=false,onRec
     const cameraPosition=new THREE.Vector3(...spec.camera.position);
     const cameraTarget=new THREE.Vector3(...spec.camera.target);
     camera.position.copy(cameraPosition);
-    const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
+    let renderer:THREE.WebGLRenderer;
+    try {
+      renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
+    } catch {
+      const fallbackTimer=window.setTimeout(()=>setRenderError('This browser cannot start the 3D renderer. The lesson controls and description remain available.'),0);
+      return()=>window.clearTimeout(fallbackTimer);
+    }
+    const statusTimer=window.setTimeout(()=>setRenderError(''),0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
     renderer.outputColorSpace=THREE.SRGBColorSpace;
     renderer.toneMapping=THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure=1.08;
     renderer.shadowMap.enabled=!compact;
-    renderer.domElement.setAttribute('aria-label',spec.alt);
+    renderer.domElement.setAttribute('aria-label',`${spec.alt} Use arrow keys to rotate or zoom the view, and R to reset the camera.`);
     renderer.domElement.setAttribute('role','img');
+    renderer.domElement.tabIndex=0;
     mount.appendChild(renderer.domElement);
     const controls=new OrbitControls(camera,renderer.domElement);
     controls.target.copy(cameraTarget);controls.enableDamping=true;controls.dampingFactor=.055;controls.enablePan=false;controls.minDistance=3;controls.maxDistance=18;controls.autoRotate=compact;controls.autoRotateSpeed=.55;controls.update();
@@ -141,6 +150,16 @@ export default function ThreeLessonRuntime({spec,active=true,compact=false,onRec
     const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
     function choose(event:PointerEvent){const rect=renderer.domElement.getBoundingClientRect();pointer.x=((event.clientX-rect.left)/rect.width)*2-1;pointer.y=-((event.clientY-rect.top)/rect.height)*2+1;raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects([...meshes.values()],false)[0];if(hit?.object?.name)setSelectedId(hit.object.name);}
     renderer.domElement.addEventListener('pointerdown',choose);
+    function useKeyboard(event:KeyboardEvent){
+      if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','r','R'].includes(event.key))return;
+      event.preventDefault();
+      if(event.key.toLowerCase()==='r'){resetCameraRef.current();return;}
+      const offset=camera.position.clone().sub(controls.target);
+      if(event.key==='ArrowLeft'||event.key==='ArrowRight')offset.applyAxisAngle(new THREE.Vector3(0,1,0),event.key==='ArrowLeft'?.14:-.14);
+      else offset.multiplyScalar(event.key==='ArrowUp'?.9:1.1).clampLength(controls.minDistance,controls.maxDistance);
+      camera.position.copy(controls.target).add(offset);controls.update();
+    }
+    renderer.domElement.addEventListener('keydown',useKeyboard);
     const timer=new THREE.Timer();timer.connect(document);let frame=0;
     function resize(){const width=mount.clientWidth,height=mount.clientHeight;if(!width||!height)return;renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();}
     const observer=new ResizeObserver(resize);observer.observe(mount);resize();
@@ -159,7 +178,7 @@ export default function ThreeLessonRuntime({spec,active=true,compact=false,onRec
       controls.update();renderer.render(scene,camera);
     }
     frame=requestAnimationFrame(animate);
-    return()=>{cancelAnimationFrame(frame);timer.dispose();observer.disconnect();renderer.domElement.removeEventListener('pointerdown',choose);controls.dispose();scene.traverse(object=>{if(object instanceof THREE.Mesh||object instanceof THREE.Line||object instanceof THREE.Points){object.geometry?.dispose();const materials=Array.isArray(object.material)?object.material:[object.material];materials.forEach(material=>material?.dispose());}});renderer.dispose();mount.replaceChildren();};
+    return()=>{window.clearTimeout(statusTimer);cancelAnimationFrame(frame);timer.dispose();observer.disconnect();renderer.domElement.removeEventListener('pointerdown',choose);renderer.domElement.removeEventListener('keydown',useKeyboard);controls.dispose();scene.traverse(object=>{if(object instanceof THREE.Mesh||object instanceof THREE.Line||object instanceof THREE.Points){object.geometry?.dispose();const materials=Array.isArray(object.material)?object.material:[object.material];materials.forEach(material=>material?.dispose());}});renderer.dispose();mount.replaceChildren();};
   },[active,compact,missionComplete,playing,probability,spec]);
 
   function updateValue(node:ThreeSceneNode,value:number){
@@ -170,6 +189,7 @@ export default function ThreeLessonRuntime({spec,active=true,compact=false,onRec
 
   return <section className={`three-runtime ${compact?'compact':''}`} aria-label={spec.title}>
     <div className="three-stage" ref={mountRef}/>
+    {renderError&&<div className="three-fallback" role="status"><Cube size={28} weight="duotone"/><b>3D preview unavailable</b><span>{renderError}</span></div>}
     <div className="three-hud">
       <div className="runtime-brand"><span><Cube size={16} weight="fill"/></span><div><small>Agent-authored world</small><b>{spec.title}</b></div></div>
       {!compact&&<div className="runtime-actions"><button onClick={()=>setPlaying(value=>!value)} aria-label={playing?'Pause world':'Play world'}>{playing?<Pause size={14}/>:<Play size={14}/>}</button><button onClick={()=>resetCameraRef.current()} aria-label="Reset camera"><ArrowCounterClockwise size={14}/></button></div>}

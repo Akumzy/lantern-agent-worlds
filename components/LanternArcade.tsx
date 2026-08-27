@@ -59,6 +59,7 @@ function makeGameId(title: string, requestId: string) {
 export default function LanternArcade() {
   const [request, setRequest] = useState(starterRequest);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState('');
   const [webMcp, setWebMcp] = useState<'checking' | 'ready' | 'unavailable'>('checking');
   const [agentActive, setAgentActive] = useState(false);
   const [phase, setPhase] = useState<StoredBuildPhase>('idle');
@@ -76,7 +77,7 @@ export default function LanternArcade() {
   const activityRef = useRef<BuildActivity[]>([]);
   const saveTimerRef = useRef<number | null>(null);
   const ledgerRef = useRef(new Map<string, unknown>());
-  const workspaceRef = useRef<WorkspaceDraft>({ request: starterRequest, games: [], selectedGameId: null, evidence: [], runtimeErrors: [], phase: 'idle' });
+  const workspaceRef = useRef<WorkspaceDraft>({ request: starterRequest, games: [], selectedGameId: null, evidence: [], runtimeErrors: {}, phase: 'idle' });
   const executeRef = useRef<(name: string, input: Record<string, unknown>) => unknown>(() => toolResult(false, 'Lantern is still preparing its game tools.'));
 
   function saveWorkspace(patch: Partial<WorkspaceDraft> = {}) {
@@ -108,9 +109,10 @@ export default function LanternArcade() {
   }
 
   function rememberRuntimeError(message: string) {
+    const gameId = draftRef.current?.id || selectedGame.id;
     errorsRef.current = [message, ...errorsRef.current].slice(0, 12);
     setRuntimeErrors(errorsRef.current);
-    saveWorkspace({ runtimeErrors: errorsRef.current, phase: 'error' });
+    saveWorkspace({ runtimeErrors: { ...workspaceRef.current.runtimeErrors, [gameId]: errorsRef.current }, phase: 'error' });
     setPhase('error');
     addActivity('Runtime issue captured', message, 'error');
   }
@@ -144,16 +146,16 @@ export default function LanternArcade() {
     executeRef.current = (name, input) => {
       setAgentActive(true);
       if (name === 'get_game_canvas_capabilities') {
-        markPhase('planning', 'Canvas contract read', 'The agent inspected renderers, safety limits, and the evidence bridge.');
         return toolResult(true, 'Lantern Arcade game-canvas capabilities are ready.', { capabilities: arcadeCapabilities, authoringBridge: { evidence: 'lantern.evidence({ event, detail, mastery? })', complete: 'lantern.complete({ mastery, detail? })', confetti: 'Mastery completion triggers host-controlled confetti automatically.' } });
       }
       if (name === 'get_game_runtime_diagnostics') {
-        markPhase('validating', 'Build inspected', draftRef.current ? `Checked ${draftRef.current.title} and its latest evidence.` : 'No draft exists yet.');
-        const draft = draftRef.current;
-        return toolResult(true, draft ? `Diagnostics for ${draft.title}.` : 'No agent-authored draft exists yet.', { gameId: draft?.id || null, revision: draft?.revision || null, validationErrors: draft ? validateGameSource(draft) : [], runtimeErrors: errorsRef.current, recentEvidence: evidenceRef.current });
+        const requestedId = typeof input.gameId === 'string' ? input.gameId : draftRef.current?.id;
+        const draft = requestedId ? workspaceRef.current.games.find((game) => game.id === requestedId) || (draftRef.current?.id === requestedId ? draftRef.current : null) : draftRef.current;
+        const gameErrors = draft ? workspaceRef.current.runtimeErrors[draft.id] || [] : [];
+        const gameEvidence = draft ? workspaceRef.current.evidence.filter((item) => item.gameId === draft.id) : [];
+        return toolResult(true, draft ? `Diagnostics for ${draft.title}.` : 'No agent-authored draft exists yet.', { gameId: draft?.id || null, revision: draft?.revision || null, validationErrors: draft ? validateGameSource(draft) : [], runtimeErrors: gameErrors, recentEvidence: gameEvidence });
       }
       if (name === 'list_saved_game_drafts') {
-        addActivity('Saved drafts inspected', `${workspaceRef.current.games.length} local ${workspaceRef.current.games.length === 1 ? 'draft' : 'drafts'} available.`);
         return toolResult(true, workspaceRef.current.games.length ? 'Browser-saved game drafts are available.' : 'No browser-saved game drafts exist yet.', {
           drafts: workspaceRef.current.games.map((game) => ({ gameId: game.id, title: game.title, subject: game.subject, ageBand: game.ageBand, revision: game.revision, status: game.status, learningGoal: game.learningGoal })),
         });
@@ -175,7 +177,7 @@ export default function LanternArcade() {
           const gameEvidence = workspaceRef.current.evidence.filter((item) => item.gameId === project.id);
           evidenceRef.current = gameEvidence;
           setEvidence(gameEvidence);
-          errorsRef.current = workspaceRef.current.runtimeErrors;
+          errorsRef.current = workspaceRef.current.runtimeErrors[project.id] || [];
           setRuntimeErrors(errorsRef.current);
           markPhase('preview', 'Saved draft resumed', `${project.title} · revision ${project.revision}`);
           result = toolResult(true, `Resumed “${project.title}”.`, { gameId: project.id, revision: project.revision, status: project.status, nextTool: 'set_game_source' });
@@ -190,6 +192,7 @@ export default function LanternArcade() {
         setAgentDraft(project);
         setSelectedGame(project);
         setResumeCandidate(null);
+        saveWorkspace({ runtimeErrors: { ...workspaceRef.current.runtimeErrors, [project.id]: [] } });
         persistProject(project);
         markPhase('drafting', 'Draft created', `${project.title} · revision ${project.revision}`);
         result = toolResult(true, `Created the game draft “${project.title}”.`, { gameId: project.id, revision: project.revision, status: project.status, nextTool: 'set_game_source' });
@@ -210,6 +213,7 @@ export default function LanternArcade() {
             setSelectedGame(next);
             errorsRef.current = [];
             setRuntimeErrors([]);
+            saveWorkspace({ runtimeErrors: { ...workspaceRef.current.runtimeErrors, [next.id]: [] } });
             persistProject(next);
             markPhase('coding', 'World programmed', `${next.title} · revision ${next.revision} is safely stored on this device.`);
             result = toolResult(true, `Updated the source for “${next.title}”.`, { gameId: next.id, revision: next.revision, status: next.status, nextTool: 'preview_game' });
@@ -222,7 +226,10 @@ export default function LanternArcade() {
           setSelectedGame(draft);
           persistProject(draft);
           markPhase('preview', 'Playtest opened', `${draft.title} is running in the live canvas.`, 'good');
-          result = toolResult(true, `Opened “${draft.title}” in the visible sandboxed game canvas.`, { gameId: draft.id, revision: draft.revision, runtimeErrors: errorsRef.current });
+          const gameErrors = workspaceRef.current.runtimeErrors[draft.id] || [];
+          errorsRef.current = gameErrors;
+          setRuntimeErrors(gameErrors);
+          result = toolResult(true, `Opened “${draft.title}” in the visible sandboxed game canvas.`, { gameId: draft.id, revision: draft.revision, runtimeErrors: gameErrors });
         }
       } else if (name === 'request_game_review') {
         const draft = draftRef.current;
@@ -230,9 +237,10 @@ export default function LanternArcade() {
         else if (draft.revision !== Number(input.expectedRevision)) result = toolResult(false, `Revision conflict. The current revision is ${draft.revision}.`, { code: 'revision_conflict', currentRevision: draft.revision });
         else {
           const validationErrors = validateGameSource(draft);
-          if (validationErrors.length || errorsRef.current.length) {
+          const gameErrors = workspaceRef.current.runtimeErrors[draft.id] || [];
+          if (validationErrors.length || gameErrors.length) {
             markPhase('error', 'Review blocked', 'Resolve validation and runtime issues first.', 'error');
-            result = toolResult(false, 'Resolve validation and runtime errors before requesting review.', { code: 'game_not_ready', validationErrors, runtimeErrors: errorsRef.current });
+            result = toolResult(false, 'Resolve validation and runtime errors before requesting review.', { code: 'game_not_ready', validationErrors, runtimeErrors: gameErrors });
           } else {
             const next: GameProject = { ...draft, revision: draft.revision + 1, status: 'review' };
             draftRef.current = next;
@@ -271,10 +279,31 @@ export default function LanternArcade() {
   }
 
   async function copyAgentPrompt() {
-    await navigator.clipboard.writeText(buildAgentPrompt(request));
-    setCopied(true);
-    markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
-    window.setTimeout(() => setCopied(false), 2400);
+    const prompt = buildAgentPrompt(request);
+    setCopyError('');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(prompt);
+      setCopied(true);
+      markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
+      window.setTimeout(() => setCopied(false), 2400);
+    } catch {
+      const fallback = document.createElement('textarea');
+      fallback.value = prompt;
+      fallback.setAttribute('readonly', '');
+      fallback.style.cssText = 'position:fixed;left:-9999px;opacity:0';
+      document.body.appendChild(fallback);
+      fallback.select();
+      const fallbackCopied = document.execCommand('copy');
+      fallback.remove();
+      if (fallbackCopied) {
+        setCopied(true);
+        markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
+        window.setTimeout(() => setCopied(false), 2400);
+      } else {
+        setCopyError('Clipboard access was blocked. Copy the brief, then ask your browser agent to open this page and use its WebMCP tools.');
+      }
+    }
   }
 
   function resumeGame(game: GameProject) {
@@ -285,7 +314,7 @@ export default function LanternArcade() {
     const gameEvidence = workspaceRef.current.evidence.filter((item) => item.gameId === game.id);
     evidenceRef.current = gameEvidence;
     setEvidence(gameEvidence);
-    errorsRef.current = workspaceRef.current.runtimeErrors;
+    errorsRef.current = workspaceRef.current.runtimeErrors[game.id] || [];
     setRuntimeErrors(errorsRef.current);
     markPhase(game.status === 'review' ? 'review' : 'preview', 'Local draft resumed', `${game.title} · revision ${game.revision}`);
     saveWorkspace({ selectedGameId: game.id });
@@ -302,24 +331,29 @@ export default function LanternArcade() {
     setRuntimeErrors([]);
     setAgentActive(false);
     markPhase('idle');
-    saveWorkspace({ selectedGameId: null, evidence: [], runtimeErrors: [] });
+    saveWorkspace({ selectedGameId: null, evidence: [] });
   }
 
   function removeSavedGame(gameId: string) {
+    const game = workspaceRef.current.games.find((item) => item.id === gameId);
+    if (!game || !window.confirm(`Remove “${game.title}” from this browser? This cannot be undone.`)) return;
     const games = workspaceRef.current.games.filter((game) => game.id !== gameId);
+    const runtimeErrors = { ...workspaceRef.current.runtimeErrors };
+    delete runtimeErrors[gameId];
     setSavedGames(games);
     if (draftRef.current?.id === gameId) startFresh();
-    saveWorkspace({ games, selectedGameId: workspaceRef.current.selectedGameId === gameId ? null : workspaceRef.current.selectedGameId });
+    saveWorkspace({ games, runtimeErrors, selectedGameId: workspaceRef.current.selectedGameId === gameId ? null : workspaceRef.current.selectedGameId });
     if (resumeCandidate?.id === gameId) setResumeCandidate(null);
   }
 
   const buildIsBusy = ['planning', 'drafting', 'coding', 'validating'].includes(phase);
-  const connectionLabel = webMcp === 'checking' ? 'Checking WebMCP' : webMcp === 'unavailable' ? 'WebMCP unavailable here' : agentActive ? 'Agent connected and building' : 'WebMCP available · waiting for agent';
+  const connectionLabel = webMcp === 'checking' ? 'Checking WebMCP' : webMcp === 'unavailable' ? 'WebMCP unavailable here' : agentActive ? buildIsBusy ? 'Agent connected and building' : 'Agent connected · ready' : 'WebMCP available · waiting for agent';
   const currentPhase = phaseCopy[phase];
   const progress = phaseProgress[phase];
 
   return (
-    <main className="arcade-shell">
+    <main className="arcade-shell" id="main-content">
+      <a className="skip-link" href="#create">Skip to game builder</a>
       <header className="arcade-nav">
         <Link className="arcade-brand" href="/" aria-label="Lantern home"><span><LightbulbFilament size={23} weight="fill" /></span><b>Lantern</b></Link>
         <nav aria-label="Primary navigation"><a href="#create">Make</a><a href="#games">Play</a><a href="#grown-ups">Safeguards</a></nav>
@@ -338,9 +372,10 @@ export default function LanternArcade() {
             <div className="pane-label"><span>01</span><b>BUILD BRIEF</b></div>
             <h2>What should the player practise?</h2>
             <p>Describe one learner, one skill, and a game world they would want to explore.</p>
-            <label className="workbench-prompt"><span className="sr-only">Learning game brief</span><textarea value={request} onChange={(event) => updateRequest(event.target.value)} rows={7} /></label>
+            <label className="workbench-prompt"><span className="sr-only">Learning game brief</span><textarea name="learning-game-brief" autoComplete="off" maxLength={2000} value={request} onChange={(event) => updateRequest(event.target.value)} rows={7} placeholder="Example: A bridge-building adventure for an 8-year-old learning equivalent fractions…" /></label>
             <ul className="brief-checklist"><li>Who is learning?</li><li>What should change after play?</li><li>What makes the world interesting?</li></ul>
             <button className="workbench-copy" type="button" onClick={copyAgentPrompt} disabled={!request.trim()}>{copied ? <Check size={18} weight="bold" /> : <Copy size={18} />}<span><b>{copied ? 'Handoff copied' : 'Copy handoff for my browser agent'}</b><small>{copied ? 'Paste it into your agent.' : 'URL, tools, limits, and build sequence included.'}</small></span></button>
+            {copyError && <p className="copy-error" role="status" aria-live="polite">{copyError}</p>}
             {resumeCandidate && <aside className="workbench-resume"><span><FloppyDisk size={16} /><b>Resume {resumeCandidate.title}</b><small>Local revision {resumeCandidate.revision}</small></span><div><button type="button" onClick={() => resumeGame(resumeCandidate)}>Resume</button><button type="button" onClick={startFresh}>Ignore</button></div></aside>}
           </aside>
 

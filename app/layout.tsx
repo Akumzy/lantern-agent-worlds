@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport = { themeColor: '#f3f6ff' };
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en"><body className={`${body.variable} ${display.variable} ${mono.variable}`}>{children}</body></html>;
 }

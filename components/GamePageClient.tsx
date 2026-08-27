@@ -29,7 +29,12 @@ export default function GamePageClient({ game, related }: { game: GameProject; r
     if (!workspace) return;
     const { version: _version, updatedAt: _updatedAt, ...draft } = workspace;
     void _version; void _updatedAt;
-    writeBrowserWorkspace({ ...draft, runtimeErrors: [message, ...workspace.runtimeErrors].slice(0, 12), phase: 'error', selectedGameId: game.id });
+    writeBrowserWorkspace({
+      ...draft,
+      runtimeErrors: { ...workspace.runtimeErrors, [game.id]: [message, ...(workspace.runtimeErrors[game.id] || [])].slice(0, 12) },
+      phase: 'error',
+      selectedGameId: game.id,
+    });
   }
 
   return (
