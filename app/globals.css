@@ -136,6 +136,9 @@
 .sandbox-game > footer { min-height: 59px; display: grid; grid-template-columns: 1fr auto auto; gap: 20px; align-items: center; padding: 10px 14px; border-top: 1px solid #d9e0ee; background: #f9faff; }
 .sandbox-game > footer div { min-width: 0; display: grid; gap: 2px; }.sandbox-game > footer span { color: #8a93a7; text-transform: uppercase; letter-spacing: .08em; font-size: 6px; font-weight: 900; }.sandbox-game > footer b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
 .sandbox-game:fullscreen { width: 100vw; height: 100vh; display: grid; grid-template-rows: auto 1fr auto; border: 0; border-radius: 0; }.sandbox-game:fullscreen .sandbox-frame-wrap,.sandbox-game:fullscreen iframe { height: 100%; }
+.sandbox-game.is-fullscreen { position: fixed; inset: 0; z-index: 1000; width: 100vw; height: 100dvh; max-width: none; display: grid; grid-template-rows: auto minmax(0,1fr) auto; border: 0; border-radius: 0; box-shadow: none; }
+.sandbox-game.is-fullscreen .sandbox-frame-wrap { min-height: 0; height: auto; overflow: hidden; }
+.sandbox-game.is-fullscreen .sandbox-frame-wrap iframe { height: 100%; min-height: 0; }
 .how-grid { display: grid; grid-template-columns: repeat(4,1fr); border: 1.5px solid #cad4ea; border-radius: 20px; background: white; box-shadow: 0 14px 30px rgba(48,67,112,.08); }
 .how-grid article { position: relative; min-height: 240px; padding: 27px 24px; border-right: 1px solid #dbe1ee; }.how-grid article:last-child { border: 0; }
 .how-grid i { position: absolute; right: 18px; top: 17px; color: #d8deeb; font: 800 33px var(--font-display); font-style: normal; }.how-grid svg { color: var(--arcade-blue); }
