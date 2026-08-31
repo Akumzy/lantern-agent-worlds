@@ -243,6 +243,23 @@
 .calm-intro a { width: max-content; display: inline-flex; align-items: center; gap: 8px; color: #3454e7; font-size: 13px; font-weight: 850; text-decoration: none; }
 .game-workbench { max-width: 1320px; margin: 0 auto; border: 1px solid #d6dce8; border-radius: 22px; background: white; box-shadow: 0 24px 70px rgba(38,53,91,.12); }
 .workbench-body { grid-template-columns: 320px minmax(0,1fr); min-height: 0; }
+.workbench-body.has-draft { grid-template-columns: minmax(0,1fr); }
+.current-build { padding: 22px 28px; border-bottom: 1px solid #dfe3eb; background: white; min-width: 0; }
+.current-build-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.current-build-heading > div { min-width: 0; }
+.current-build h2 { margin: 6px 0 0; font: 800 clamp(22px,2.6vw,30px)/1.15 var(--font-display); letter-spacing: -.035em; overflow-wrap: anywhere; }
+.current-build-goal { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
+.current-build-goal > span { color: #3454e7; font-size: 12px; font-weight: 700; }
+.current-build-goal p { flex: 1 1 260px; margin: 0; color: #59647c; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.current-build-details { margin-top: 12px; color: #59647c; font-size: 12px; }
+.current-build-details summary { width: fit-content; padding-block: 8px; color: #3454e7; font-weight: 700; cursor: pointer; }
+.current-build-details p { max-width: 780px; margin: 8px 0; line-height: 1.6; overflow-wrap: anywhere; }
+.current-build-details small { color: #687187; }
+.arcade-shell .workbench-secondary { flex-shrink: 0; min-height: 40px; padding: 8px 12px; border: 1px solid #d5dbe7; border-radius: 10px; background: white; color: #3454e7; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
+.arcade-shell .workbench-secondary:hover { border-color: #3454e7; background: #f3f6ff; }
+.brief-example { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.brief-example p { flex: 1 1 130px; margin: 0; color: #687187; font-size: 11px; line-height: 1.5; }
+.workbench-prompt textarea::placeholder { color: #737e94; font-weight: 400; }
 .brief-pane { padding: 32px; border-right: 1px solid #e1e5ed; background: white; }
 .quiet-kicker { color: #3454e7; text-transform: uppercase; letter-spacing: .13em; font-size: 9px; font-weight: 900; }
 .brief-pane h2 { margin: 17px 0 10px; font-size: 34px; line-height: .98; }
@@ -251,10 +268,12 @@
 .workbench-copy { min-height: 58px; margin-top: 14px; padding: 10px 13px; border: 0; border-radius: 12px; box-shadow: none; }
 .workbench-copy b { font-size: 12px; }.workbench-copy small { font-size: 10px; }
 .workbench-copy:active { translate: none; box-shadow: none; opacity: .86; }
+.workbench-copy:disabled { background: #e7eaf2; color: #66718a; cursor: not-allowed; }
+.workbench-copy:disabled small { color: #66718a; }
 .copy-error { margin-top: 10px; border-radius: 10px; font-size: 11px; }
 .studio-status { display: grid; grid-template-columns: 10px 1fr; gap: 10px; align-items: start; margin-top: 20px; padding-top: 18px; border-top: 1px solid #e5e8ef; }
 .studio-status > i { width: 9px; height: 9px; margin-top: 3px; border-radius: 50%; background: #a8b0c2; }
-.studio-status.ready > i { background: #2ecf9a; }.studio-status.active > i { background: #3454e7; }
+.studio-status.observed > i { background: #3454e7; }
 .studio-status span { display: grid; gap: 3px; }.studio-status b { font-size: 11px; }.studio-status small { color: #7b8497; font-size: 9px; line-height: 1.4; }
 .workbench-resume { border-top-color: #e2e6ee; }
 .playtest-pane { grid-template-rows: 1fr; background: #eef1f7; }
@@ -269,6 +288,7 @@
 .sandbox-workbench .sandbox-actions button { border-color: #d5dbe6; border-radius: 8px; background: white; }
 .workbench-canvas .building-overlay { inset: 58px 0 0; border: 0; border-radius: 0; background: rgba(247,248,252,.94); backdrop-filter: blur(8px); }
 .workbench-drawer { grid-column: 1/-1; display: grid; grid-template-columns: minmax(270px,1.3fr) repeat(2,minmax(190px,.65fr)); border-top: 1px solid #dfe3eb; background: white; }
+.workbench-drawer > .studio-status { grid-column: 1/-1; margin: 0; padding: 14px 22px; border-top: 0; border-bottom: 1px solid #e5e8ef; }
 .build-summary { display: grid; grid-template-columns: 10px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 18px 22px; }
 .build-summary > i { width: 9px; height: 9px; border-radius: 50%; background: #f7c948; }
 .build-summary.phase-preview > i,.build-summary.phase-review > i { background: #2ecf9a; }.build-summary.phase-error > i { background: #f3665e; }
@@ -295,6 +315,7 @@
 @media (max-width: 620px) {
   .arcade-shell { padding-inline: 12px; }.calm-intro { margin: 44px 8px 32px; }.calm-intro h1 { font-size: 50px; }
   .game-workbench { border-radius: 16px; }.brief-pane { padding: 24px 20px; }
+  .current-build { padding: 20px; }.current-build-heading { align-items: flex-start; flex-direction: column; gap: 14px; }
   .sandbox-workbench .sandbox-frame-wrap,.sandbox-workbench .sandbox-frame-wrap iframe { height: 520px; min-height: 520px; }.build-summary { grid-template-columns: 10px 1fr; }.build-summary > a { grid-column: 2; }
 }
 

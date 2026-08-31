@@ -14,12 +14,8 @@ import {
   readBrowserWorkspace, writeBrowserWorkspace, WORKSPACE_KEY, type BrowserWorkspace, type StoredBuildPhase,
 } from '../lib/browser-workspace';
 import SandboxGameCanvas from './SandboxGameCanvas';
-
-const legacyStarterRequests = new Set([
-  'A multiplication adventure for an 8-year-old who loves space. Practise the 6 times table with three short levels.',
-  'A bridge-building adventure for an 8-year-old. Practise equivalent fractions by repairing three sections of a sky bridge.',
-]);
-const starterRequest = 'A colorful harbor adventure for a 6-year-old learning addition and subtraction within 20. Pilot a small boat between three islands and load the correct number of cargo crates to complete each equation.';
+import CurrentBuild from './CurrentBuild';
+import { exampleRequest, isExampleRequest, resumedBuildPhase, toolActivityLabels } from '../lib/workbench-state';
 type BuildActivity = { id: number; label: string; detail: string; tone?: 'good' | 'error' };
 type WorkspaceDraft = Omit<BrowserWorkspace, 'version' | 'updatedAt'>;
 
@@ -60,11 +56,11 @@ function makeGameId(title: string, requestId: string) {
 }
 
 export default function LanternArcade() {
-  const [request, setRequest] = useState(starterRequest);
+  const [request, setRequest] = useState('');
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState('');
   const [webMcp, setWebMcp] = useState<'checking' | 'ready' | 'unavailable'>('checking');
-  const [agentActive, setAgentActive] = useState(false);
+  const [lastAgentActivity, setLastAgentActivity] = useState<{ at: number; label: string } | null>(null);
   const [phase, setPhase] = useState<StoredBuildPhase>('idle');
   const [selectedGame, setSelectedGame] = useState<GameProject>(demoGames[0]);
   const [agentDraft, setAgentDraft] = useState<GameProject | null>(null);
@@ -79,8 +75,9 @@ export default function LanternArcade() {
   const errorsRef = useRef<string[]>([]);
   const activityRef = useRef<BuildActivity[]>([]);
   const saveTimerRef = useRef<number | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement | null>(null);
   const ledgerRef = useRef(new Map<string, unknown>());
-  const workspaceRef = useRef<WorkspaceDraft>({ request: starterRequest, games: [], selectedGameId: null, evidence: [], runtimeErrors: {}, phase: 'idle' });
+  const workspaceRef = useRef<WorkspaceDraft>({ request: '', games: [], selectedGameId: null, evidence: [], runtimeErrors: {}, phase: 'idle' });
   const executeRef = useRef<(name: string, input: Record<string, unknown>) => unknown>(() => toolResult(false, 'Lantern is still preparing its game tools.'));
 
   function saveWorkspace(patch: Partial<WorkspaceDraft> = {}) {
@@ -124,7 +121,7 @@ export default function LanternArcade() {
     const hydrateTimer = window.setTimeout(() => {
       const stored = readBrowserWorkspace();
       if (stored) {
-        const restoredRequest = !stored.request || legacyStarterRequests.has(stored.request) ? starterRequest : stored.request;
+        const restoredRequest = stored.request;
         workspaceRef.current = { request: restoredRequest, games: stored.games, selectedGameId: stored.selectedGameId, evidence: stored.evidence, runtimeErrors: stored.runtimeErrors, phase: stored.phase };
         setRequest(restoredRequest);
         setSavedGames(stored.games);
@@ -142,12 +139,12 @@ export default function LanternArcade() {
       addActivity('Workspace changed in another tab', 'Resume the newest saved revision before editing.');
     }
     window.addEventListener('storage', onStorage);
-    return () => { window.clearTimeout(hydrateTimer); window.removeEventListener('storage', onStorage); };
+    return () => { window.clearTimeout(hydrateTimer); if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current); window.removeEventListener('storage', onStorage); };
   }, []);
 
   useEffect(() => {
     executeRef.current = (name, input) => {
-      setAgentActive(true);
+      setLastAgentActivity({ at: Date.now(), label: toolActivityLabels[name] || 'Called a game tool' });
       if (name === 'get_game_canvas_capabilities') {
         return toolResult(true, 'Lantern Arcade game-canvas capabilities are ready.', { capabilities: arcadeCapabilities, authoringBridge: { evidence: 'lantern.evidence({ event, detail, mastery? })', complete: 'lantern.complete({ mastery, detail? })', confetti: 'Mastery completion triggers host-controlled confetti automatically.' } });
       }
@@ -182,7 +179,7 @@ export default function LanternArcade() {
           setEvidence(gameEvidence);
           errorsRef.current = workspaceRef.current.runtimeErrors[project.id] || [];
           setRuntimeErrors(errorsRef.current);
-          markPhase('preview', 'Saved draft resumed', `${project.title} · revision ${project.revision}`);
+          markPhase(resumedBuildPhase(project), 'Saved draft resumed', `${project.title} · revision ${project.revision}`);
           result = toolResult(true, `Resumed “${project.title}”.`, { gameId: project.id, revision: project.revision, status: project.status, nextTool: 'set_game_source' });
         }
       } else if (name === 'create_game_draft') {
@@ -274,7 +271,7 @@ export default function LanternArcade() {
       modelContext.registerTool({
         ...definition,
         inputSchema: definition.inputSchema as unknown as Record<string, unknown>,
-        annotations: definition.annotations
+        annotations: 'annotations' in definition
           ? definition.annotations as unknown as Record<string, unknown>
           : undefined,
         execute: (input: Record<string, unknown>) => executeRef.current(definition.name, input),
@@ -285,19 +282,22 @@ export default function LanternArcade() {
 
   function updateRequest(value: string) {
     setRequest(value);
+    setCopied(false);
+    setCopyError('');
     workspaceRef.current.request = value;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => saveWorkspace({ request: value }), 240);
   }
 
   async function copyAgentPrompt() {
+    if (!request.trim() || draftRef.current) return;
     const prompt = buildAgentPrompt(request);
     setCopyError('');
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
       await navigator.clipboard.writeText(prompt);
       setCopied(true);
-      markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
+      if (!draftRef.current) markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
       window.setTimeout(() => setCopied(false), 2400);
     } catch {
       const fallback = document.createElement('textarea');
@@ -316,7 +316,7 @@ export default function LanternArcade() {
       }
       if (fallbackCopied) {
         setCopied(true);
-        markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
+        if (!draftRef.current) markPhase('handoff', 'Agent instructions copied', 'Paste them into ChatGPT or another browser agent with WebMCP access.');
         window.setTimeout(() => setCopied(false), 2400);
       } else {
         setCopyError('Clipboard access was blocked. Copy the brief, then ask your browser agent to open this page and use its WebMCP tools.');
@@ -334,11 +334,12 @@ export default function LanternArcade() {
     setEvidence(gameEvidence);
     errorsRef.current = workspaceRef.current.runtimeErrors[game.id] || [];
     setRuntimeErrors(errorsRef.current);
-    markPhase(game.status === 'review' ? 'review' : 'preview', 'Local draft resumed', `${game.title} · revision ${game.revision}`);
+    markPhase(resumedBuildPhase(game), 'Local draft resumed', `${game.title} · revision ${game.revision}`);
     saveWorkspace({ selectedGameId: game.id });
   }
 
   function startFresh() {
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     draftRef.current = null;
     evidenceRef.current = [];
     errorsRef.current = [];
@@ -347,9 +348,20 @@ export default function LanternArcade() {
     setSelectedGame(demoGames.find((game) => game.id === 'fraction-forge') || demoGames[0]);
     setEvidence([]);
     setRuntimeErrors([]);
-    setAgentActive(false);
+    setRequest('');
+    setCopied(false);
+    setCopyError('');
+    setLastAgentActivity(null);
+    activityRef.current = [];
+    setActivity([]);
     markPhase('idle');
-    saveWorkspace({ selectedGameId: null, evidence: [] });
+    saveWorkspace({ request: '', selectedGameId: null });
+  }
+
+  function startAnotherGame() {
+    if (buildIsBusy && !window.confirm('Leave this build? The draft stays saved, but this does not stop your agent. Ask it to finish or stop before starting another game.')) return;
+    startFresh();
+    window.setTimeout(() => promptRef.current?.focus(), 0);
   }
 
   function removeSavedGame(gameId: string) {
@@ -365,7 +377,8 @@ export default function LanternArcade() {
   }
 
   const buildIsBusy = ['planning', 'drafting', 'coding', 'validating'].includes(phase);
-  const connectionLabel = webMcp === 'checking' ? 'Checking WebMCP' : webMcp === 'unavailable' ? 'WebMCP unavailable here' : agentActive ? buildIsBusy ? 'Agent connected and building' : 'Agent connected · ready' : 'WebMCP available · waiting for agent';
+  const connectionLabel = lastAgentActivity ? `Last agent activity at ${new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(lastAgentActivity.at)}` : webMcp === 'checking' ? 'Checking browser-agent support' : webMcp === 'unavailable' ? 'Browser-agent tools unavailable here' : 'Ready for your browser agent';
+  const connectionDetail = lastAgentActivity ? `${lastAgentActivity.label} · not a live connection indicator` : webMcp === 'unavailable' ? 'Open Lantern in a browser with WebMCP support.' : agentDraft ? 'No agent activity observed in this session.' : 'No agent activity yet. You can also give your request directly to your agent.';
   const currentPhase = phaseCopy[phase];
   const progress = phaseProgress[phase];
 
@@ -384,23 +397,24 @@ export default function LanternArcade() {
       </section>
 
       <section className="game-workbench" id="create">
-        <div className="workbench-body">
-          <aside className="brief-pane">
-            <span className="quiet-kicker">Build brief</span>
+        <div className={`workbench-body${agentDraft ? ' has-draft' : ''}`}>
+          {agentDraft ? <CurrentBuild project={agentDraft} onStartFresh={startAnotherGame} /> : <aside className="brief-pane">
+            <span className="quiet-kicker">{isExampleRequest(request) ? 'Example brief' : 'Build brief'}</span>
             <h2>What should they practise?</h2>
             <p>Name the learner, the skill, and a world they would enjoy.</p>
-            <label className="workbench-prompt"><span className="sr-only">Learning game brief</span><textarea name="learning-game-brief" autoComplete="off" maxLength={2000} value={request} onChange={(event) => updateRequest(event.target.value)} rows={7} placeholder="Example: A bridge-building adventure for an 8-year-old learning equivalent fractions…" /></label>
+            <label className="workbench-prompt"><span className="sr-only">Learning game brief</span><textarea ref={promptRef} name="learning-game-brief" autoComplete="off" maxLength={2000} value={request} onChange={(event) => updateRequest(event.target.value)} rows={7} placeholder={`Example: ${exampleRequest}`} aria-describedby="brief-help" /></label>
+            <div className="brief-example"><p id="brief-help">{isExampleRequest(request) ? 'This is an example, not a request from your agent.' : 'Write a brief here, or give your request directly to your agent.'}</p><button className="workbench-secondary" type="button" onClick={() => { updateRequest(exampleRequest); promptRef.current?.focus(); }}>Use example</button></div>
             <button className="workbench-copy" type="button" onClick={copyAgentPrompt} disabled={!request.trim()}>{copied ? <Check size={18} weight="bold" /> : <Copy size={18} />}<span><b>{copied ? 'Handoff copied' : 'Copy for my browser agent'}</b><small>{copied ? 'Paste it into your agent.' : 'Includes this page and the build steps.'}</small></span></button>
             {copyError && <p className="copy-error" role="status" aria-live="polite">{copyError}</p>}
-            <div className={`studio-status ${webMcp} ${agentActive ? 'active' : ''}`}><i /><span><b>{connectionLabel}</b><small>{currentPhase.label} · sandboxed on this device</small></span></div>
-            {resumeCandidate && <aside className="workbench-resume"><span><FloppyDisk size={16} /><b>Resume {resumeCandidate.title}</b><small>Local revision {resumeCandidate.revision}</small></span><div><button type="button" onClick={() => resumeGame(resumeCandidate)}>Resume</button><button type="button" onClick={startFresh}>Ignore</button></div></aside>}
-          </aside>
+            {resumeCandidate && <aside className="workbench-resume"><span><FloppyDisk size={16} /><b>Resume {resumeCandidate.title}</b><small>Local revision {resumeCandidate.revision}</small></span><div><button type="button" onClick={() => resumeGame(resumeCandidate)}>Resume</button><button type="button" onClick={() => { setResumeCandidate(null); saveWorkspace({ selectedGameId: null, phase: 'idle' }); }}>Ignore</button></div></aside>}
+          </aside>}
 
           <section className="playtest-pane">
             <div className="workbench-canvas"><SandboxGameCanvas variant="workbench" key={`${selectedGame.id}-${selectedGame.revision}`} project={selectedGame} onEvidence={rememberEvidence} onRuntimeError={rememberRuntimeError} />{buildIsBusy && <div className="building-overlay"><span><Wrench size={25} weight="duotone" /></span><b>{currentPhase.label}</b><small>{currentPhase.detail}</small><i /></div>}</div>
           </section>
 
           <section className="workbench-drawer">
+            <div className={`studio-status ${webMcp}${lastAgentActivity ? ' observed' : ''}`} role="status"><i aria-hidden="true" /><span><b>{connectionLabel}</b><small>{connectionDetail}</small></span></div>
             <div className={`build-summary phase-${phase}`} aria-live="polite"><i /><span><b>{currentPhase.label}</b><small>{runtimeErrors[0] || currentPhase.detail}{agentDraft ? ` · ${storageState === 'error' ? 'not saved' : 'saved locally'}` : ''}</small></span>{agentDraft && <a href={`/games/local/${agentDraft.id}`}>Open game page <ArrowRight size={13} /></a>}</div>
             <details><summary>Build details <span>{Math.max(0, progress + 1)} / 5</span></summary><div className="thread-pipeline">{buildPipeline.map(([label, detail], index) => <div className={`${index < progress ? 'complete' : ''} ${index === progress ? 'current' : ''}`} key={label}><i>{index < progress ? <Check size={9} weight="bold" /> : index + 1}</i><span><b>{label}</b><small>{detail}</small></span></div>)}</div>{activity.length > 0 && <div className="thread-events">{activity.slice(0, 3).map((item) => <div className={`thread-event ${item.tone || ''}`} key={item.id}><i /><span><b>{item.label}</b><small>{item.detail}</small></span></div>)}</div>}</details>
             <details><summary>Learning evidence <span>{evidence.length}</span></summary><p>{evidence[0]?.mastery || evidence[0]?.detail || 'Play the game to capture what the learner understands.'}</p></details>

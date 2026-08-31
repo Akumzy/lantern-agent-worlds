@@ -12,7 +12,7 @@ test('marks every inspection tool as read-only', () => {
   const readTools = ['get_game_canvas_capabilities', 'list_saved_game_drafts', 'get_game_runtime_diagnostics'];
   for (const name of readTools) {
     const tool = arcadeToolDefinitions.find((candidate) => candidate.name === name);
-    assert.equal(tool?.annotations?.readOnlyHint, true, `${name} should be read-only`);
+    assert.equal(tool && 'annotations' in tool && tool.annotations.readOnlyHint, true, `${name} should be read-only`);
   }
 });
 
